@@ -515,23 +515,73 @@
                 style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;display:none;"
                 title="Stats">📊</button>
             <button id="btnUndo" class="nd-btn"
-                style="background:#1a2d4a;padding:7px 13px;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"
+                style="background:#1a2d4a;padding:10px 14px;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"
                 title="Undo last shot">↩ Undo</button>
-            <button id="btnHeatmap" class="nd-btn"
-                style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;" title="Heatmap">🔥
-                Heat</button>
             <button id="btnZones" class="nd-btn"
-                style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;" title="Zones">🔲
+                style="background:#1a2d4a;padding:10px 14px;font-size:12px;color:#94a3b8;" title="Zones">🔲
                 Zones</button>
             <button id="btnZoneDraw" class="nd-btn"
-                style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;display:none;" title="Draw zone">✏ Draw</button>
+                style="background:#1a2d4a;padding:10px 14px;font-size:12px;color:#94a3b8;display:none;" title="Draw zone">✏ Draw</button>
             <button id="btnShowAll" class="nd-btn"
-                style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;" title="Show all players">🔄 All</button>
-            <button id="btnClear" class="nd-btn"
-                style="background:#2a0a0a;padding:7px 11px;font-size:12px;color:#f87171;" title="Clear all shots">🗑 Clear</button>
-            <button id="btnSetup" class="nd-btn"
-                style="background:#C83803;padding:7px 14px;font-size:12px;color:white;font-weight:900;text-transform:uppercase;letter-spacing:.06em;">⚙
-                Setup</button>
+                style="background:#1a2d4a;padding:10px 14px;font-size:12px;color:#94a3b8;" title="Show all players">🔄 All</button>
+
+            <!-- Hamburger Menu -->
+            <div style="position:relative;display:flex;align-items:center;">
+                <button id="btnMenu" class="nd-btn"
+                    style="background:#1a2d4a;padding:10px 14px;font-size:14px;color:#94a3b8;cursor:pointer;">☰</button>
+                <div id="menuDropdown" style="
+                    display:none;
+                    position:absolute;
+                    top:100%;
+                    right:0;
+                    background:#0B162A;
+                    border:1px solid #1e3254;
+                    border-radius:8px;
+                    margin-top:4px;
+                    z-index:50;
+                    min-width:160px;
+                    box-shadow:0 4px 12px rgba(0,0,0,.3);">
+                    <button id="btnHeatmapMenu" style="
+                        display:block;
+                        width:100%;
+                        padding:12px 16px;
+                        background:none;
+                        border:none;
+                        text-align:left;
+                        color:#94a3b8;
+                        cursor:pointer;
+                        font-size:13px;
+                        border-bottom:1px solid #1e3254;
+                        transition:background .15s;
+                    " title="Heatmap">🔥 Heatmap</button>
+                    <button id="btnClearMenu" style="
+                        display:block;
+                        width:100%;
+                        padding:12px 16px;
+                        background:none;
+                        border:none;
+                        text-align:left;
+                        color:#f87171;
+                        cursor:pointer;
+                        font-size:13px;
+                        border-bottom:1px solid #1e3254;
+                        transition:background .15s;
+                    " title="Clear all shots">🗑 Clear All</button>
+                    <button id="btnSetupMenu" style="
+                        display:block;
+                        width:100%;
+                        padding:12px 16px;
+                        background:none;
+                        border:none;
+                        text-align:left;
+                        color:#C83803;
+                        cursor:pointer;
+                        font-size:13px;
+                        font-weight:900;
+                        transition:background .15s;
+                    ">⚙ Setup</button>
+                </div>
+            </div>
         </div>
     </header>
 
@@ -851,6 +901,33 @@
                 renderZones();
             }
         }
+
+        // ══════════════════════════════════
+        // HAMBURGER MENU
+        // ══════════════════════════════════
+        const btnMenu = document.getElementById('btnMenu');
+        const menuDropdown = document.getElementById('menuDropdown');
+
+        btnMenu.addEventListener('click', (e) => {
+            e.stopPropagation();
+            menuDropdown.style.display = menuDropdown.style.display === 'none' ? 'block' : 'none';
+        });
+
+        // Close menu when clicking outside
+        document.addEventListener('click', () => {
+            menuDropdown.style.display = 'none';
+        });
+
+        // Add hover effects to menu items
+        const menuItems = menuDropdown.querySelectorAll('button');
+        menuItems.forEach(item => {
+            item.addEventListener('mouseenter', () => {
+                item.style.background = 'rgba(255,255,255,.05)';
+            });
+            item.addEventListener('mouseleave', () => {
+                item.style.background = 'none';
+            });
+        });
 
         // Wire up zone buttons
         document.getElementById('btnZones').addEventListener('click', function() {
@@ -1528,7 +1605,15 @@
         // ══════════════════════════════════
         // SETUP MODAL
         // ══════════════════════════════════
-        document.getElementById('btnSetup').onclick = () => { buildSetupUI(); setupModal.classList.add('open'); };
+        const openSetupModal = () => {
+            buildSetupUI();
+            setupModal.classList.add('open');
+            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
+        };
+        // Support both old button ID and new menu button ID
+        const btnSetupOld = document.getElementById('btnSetup');
+        if (btnSetupOld) btnSetupOld.onclick = openSetupModal;
+        document.getElementById('btnSetupMenu').onclick = openSetupModal;
         function closeSetup() { setupModal.classList.remove('open'); }
         setupBg.addEventListener('click', closeSetup);
         setupClose.addEventListener('click', closeSetup);
@@ -1619,20 +1704,33 @@
         // ══════════════════════════════════
         // HEATMAP TOGGLE
         // ══════════════════════════════════
-        document.getElementById('btnHeatmap').onclick = function () {
+        const toggleHeatmap = function () {
             heatOn = !heatOn;
-            this.style.color = heatOn ? '#fbbf24' : '#94a3b8';
-            this.style.background = heatOn ? '#2d2000' : '#1a2d4a';
             renderShots();
+            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
         };
+        const btnHeatmapOld = document.getElementById('btnHeatmap');
+        if (btnHeatmapOld) btnHeatmapOld.onclick = toggleHeatmap;
+        document.getElementById('btnHeatmapMenu').onclick = toggleHeatmap;
 
         // ══════════════════════════════════
         // SHOW ALL / CLEAR
         // ══════════════════════════════════
         document.getElementById('btnShowAll').onclick = () => { playerFilter.clear(); renderAll(); };
-        document.getElementById('btnClear').onclick = () => {
-            if (confirm('Clear all shot data?')) { shots = []; saveShots(); playerFilter.clear(); renderAll(); haptic('miss'); }
+
+        const doClear = () => {
+            if (confirm('Clear all shot data?')) {
+                shots = [];
+                saveShots();
+                playerFilter.clear();
+                renderAll();
+                haptic('miss');
+            }
+            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
         };
+        const btnClearOld = document.getElementById('btnClear');
+        if (btnClearOld) btnClearOld.onclick = doClear;
+        document.getElementById('btnClearMenu').onclick = doClear;
 
         // ══════════════════════════════════
         // UNDO LAST SHOT

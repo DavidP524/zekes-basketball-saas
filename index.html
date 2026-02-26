@@ -859,16 +859,16 @@
             }
         });
 
-        // Zone drawing event handlers (freeform drag-to-draw)
+        // Zone drawing event handlers (mobile-optimized freeform drag-to-draw)
         const zoneLayer = document.getElementById('zoneLayer');
         let isDrawing = false;
+        let lastDrawTime = 0;
 
-        zoneLayer.addEventListener('mousedown', e => {
-            if (!zoneDrawMode) return;
-            e.preventDefault();
+        function startDrawing(clientX, clientY) {
+            if (!zoneDrawMode || isDrawing) return;
             isDrawing = true;
             zoneDraftPoints = [];
-            const pos = clientToSvg(e.clientX, e.clientY);
+            const pos = clientToSvg(clientX, clientY);
             zoneDraftPoints.push(pos);
 
             // Create new polyline for drawing
@@ -876,30 +876,35 @@
             p.id = 'zoneDraftPolygon';
             p.setAttribute('stroke', '#C83803');
             p.setAttribute('fill', 'none');
-            p.setAttribute('stroke-width', '3');
+            p.setAttribute('stroke-width', '4');
             p.setAttribute('stroke-linecap', 'round');
             p.setAttribute('stroke-linejoin', 'round');
-            p.setAttribute('opacity', '0.8');
+            p.setAttribute('opacity', '0.9');
             zoneLayer.appendChild(p);
-        });
+        }
 
-        zoneLayer.addEventListener('mousemove', e => {
+        function drawPoint(clientX, clientY) {
             if (!isDrawing || !zoneDrawMode) return;
-            e.preventDefault();
-            const pos = clientToSvg(e.clientX, e.clientY);
-            zoneDraftPoints.push(pos);
+            const now = Date.now();
+            if (now - lastDrawTime < 16) return; // Throttle to ~60fps on mobile
+            lastDrawTime = now;
 
-            const draft = document.getElementById('zoneDraftPolygon');
-            if (draft) {
-                const pointsStr = zoneDraftPoints.map(pt => `${Math.round(pt.x)},${Math.round(pt.y)}`).join(' ');
-                draft.setAttribute('points', pointsStr);
+            const pos = clientToSvg(clientX, clientY);
+            // Only add point if it's far enough from last point (reduce noise)
+            if (zoneDraftPoints.length === 0 || Math.hypot(pos.x - zoneDraftPoints[zoneDraftPoints.length - 1].x, pos.y - zoneDraftPoints[zoneDraftPoints.length - 1].y) > 3) {
+                zoneDraftPoints.push(pos);
+
+                const draft = document.getElementById('zoneDraftPolygon');
+                if (draft) {
+                    const pointsStr = zoneDraftPoints.map(pt => `${Math.round(pt.x)},${Math.round(pt.y)}`).join(' ');
+                    draft.setAttribute('points', pointsStr);
+                }
             }
-        });
+        }
 
-        zoneLayer.addEventListener('mouseup', e => {
+        function finishDrawing() {
             if (!isDrawing) return;
             isDrawing = false;
-            e.preventDefault();
 
             if (zoneDraftPoints.length < 10) {
                 const draft = document.getElementById('zoneDraftPolygon');
@@ -921,7 +926,41 @@
             saveZones();
             zoneDraftPoints = [];
             renderZones();
+        }
+
+        // Mouse events
+        zoneLayer.addEventListener('mousedown', e => {
+            if (!zoneDrawMode) return;
+            e.preventDefault();
+            startDrawing(e.clientX, e.clientY);
         });
+
+        zoneLayer.addEventListener('mousemove', e => {
+            if (!isDrawing || !zoneDrawMode) return;
+            e.preventDefault();
+            drawPoint(e.clientX, e.clientY);
+        });
+
+        zoneLayer.addEventListener('mouseup', () => finishDrawing());
+        zoneLayer.addEventListener('mouseleave', () => finishDrawing());
+
+        // Touch events (mobile support)
+        zoneLayer.addEventListener('touchstart', e => {
+            if (!zoneDrawMode) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            startDrawing(touch.clientX, touch.clientY);
+        }, { passive: false });
+
+        zoneLayer.addEventListener('touchmove', e => {
+            if (!isDrawing || !zoneDrawMode) return;
+            e.preventDefault();
+            const touch = e.touches[0];
+            drawPoint(touch.clientX, touch.clientY);
+        }, { passive: false });
+
+        zoneLayer.addEventListener('touchend', () => finishDrawing());
+        zoneLayer.addEventListener('touchcancel', () => finishDrawing());
 
         // Right-click to cancel zone drawing
         zoneLayer.addEventListener('contextmenu', e => {

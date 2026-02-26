@@ -152,33 +152,97 @@
             border-bottom-color: #C83803;
         }
 
-        /* ── STATS PANEL ── */
-        #statsPanel {
-            width: 224px;
+        /* ── SPLIT STATS PANELS ── */
+        .side-panel {
+            width: 160px;
             flex-shrink: 0;
             background: #0a1628;
-            border-left: 1px solid #1e3254;
             display: flex;
             flex-direction: column;
             overflow: hidden;
         }
 
+        #statsLeft {
+            border-right: 1px solid #1e3254;
+        }
+
+        #statsRight {
+            border-left: 1px solid #1e3254;
+        }
+
+        .sp-header {
+            padding: 8px 8px 4px;
+            border-bottom: 1px solid #1e3254;
+            font-size: 10px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            flex-shrink: 0;
+        }
+
+        .sp-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 4px 6px 8px;
+        }
+
+        .sp-footer {
+            background: #080f1e;
+            border-top: 1px solid #1a2d4a;
+            padding: 8px 6px;
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            text-align: center;
+            flex-shrink: 0;
+            gap: 2px;
+        }
+
+        .sp-footer-label {
+            font-size: 9px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .08em;
+            color: #4a6080;
+        }
+
+        .sp-footer-val {
+            font-size: 16px;
+            font-weight: 900;
+        }
+
         @media (max-width: 640px) {
-            #statsPanel {
+            .side-panel {
                 display: none;
                 position: fixed;
-                top: 54px;
-                right: 0;
-                bottom: 58px;
-                width: 200px;
+                top: 88px;
+                bottom: 0;
+                width: 180px;
                 z-index: 40;
-                border-radius: 12px 0 0 12px;
-                box-shadow: -4px 0 20px rgba(0, 0, 0, .5);
+                box-shadow: 4px 0 20px rgba(0,0,0,.5);
             }
 
-            #statsPanel.open {
+            #statsLeft {
+                left: 0;
+                border-radius: 0 12px 12px 0;
+                border-right: 1px solid #1e3254;
+            }
+
+            #statsRight {
+                right: 0;
+                border-radius: 12px 0 0 12px;
+                border-left: 1px solid #1e3254;
+            }
+
+            .side-panel.open {
                 display: flex;
             }
+        }
+
+        .side-panel .player-row {
+            grid-template-columns: 26px 1fr 26px 26px 38px;
+            padding: 4px 6px;
+            gap: 3px;
+            font-size: 11px;
         }
 
         .player-row {
@@ -331,6 +395,27 @@
             color: #0B162A !important;
         }
 
+        /* quarter chips */
+        .q-chip {
+            padding: 4px 12px;
+            border-radius: 99px;
+            border: 2px solid #1e3254;
+            font-size: 12px;
+            font-weight: 900;
+            color: #4a6080;
+            background: transparent;
+            cursor: pointer;
+            transition: background .12s, color .12s, border-color .12s;
+            touch-action: manipulation;
+            flex-shrink: 0;
+        }
+
+        .q-chip.sel {
+            background: #C83803;
+            border-color: #C83803;
+            color: white;
+        }
+
         /* scrollbar */
         ::-webkit-scrollbar {
             width: 3px;
@@ -344,6 +429,46 @@
             background: #2a3c5a;
             border-radius: 99px;
         }
+
+        /* zone circles */
+        .zone-circle {
+            fill: none;
+            stroke-width: 2;
+            cursor: pointer;
+        }
+
+        .zone-circle:hover {
+            stroke-width: 3;
+        }
+
+        /* zone label */
+        .zone-label {
+            font-size: 13px;
+            font-weight: 900;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+            fill: white;
+            text-shadow: 0 1px 3px rgba(0,0,0,.8);
+        }
+
+        /* zone FG% */
+        .zone-fg {
+            font-size: 11px;
+            font-weight: 700;
+            text-anchor: middle;
+            dominant-baseline: middle;
+            pointer-events: none;
+        }
+
+        /* draft circle (while drawing) */
+        #zoneDraftCircle {
+            fill: rgba(200,56,3,.08);
+            stroke: #C83803;
+            stroke-width: 2;
+            stroke-dasharray: 6,4;
+            pointer-events: none;
+        }
     </style>
 </head>
 
@@ -351,13 +476,21 @@
 
     <!-- ══ HEADER ══ -->
     <header
-        style="background:#0B162A;border-bottom:1px solid #1e3254;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;z-index:30;">
+        style="background:#0B162A;border-bottom:1px solid #1e3254;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;z-index:30;position:relative;">
         <div style="display:flex;align-items:center;gap:10px;">
             <h1 style="color:#C83803;font-size:22px;font-weight:900;font-style:italic;letter-spacing:-.5px;">1 AND DONE
             </h1>
             <span style="font-size:9px;color:#3a5070;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Apex
                 Digital</span>
         </div>
+
+        <!-- Centered score display -->
+        <div id="scoreDisplay" style="display:flex;align-items:center;gap:10px;font-size:clamp(13px,2.5vw,20px);font-weight:900;letter-spacing:.04em;position:absolute;left:50%;transform:translateX(-50%);pointer-events:none;white-space:nowrap;">
+            <span id="scoreHome" style="color:#3b82f6;">0</span>
+            <span style="color:#2a3c5a;font-size:.8em;">—</span>
+            <span id="scoreAway" style="color:#f97316;">0</span>
+        </div>
+
         <div style="display:flex;gap:8px;align-items:center;">
             <button id="btnStatsToggle" class="nd-btn"
                 style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;display:none;"
@@ -368,14 +501,40 @@
             <button id="btnHeatmap" class="nd-btn"
                 style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;" title="Heatmap">🔥
                 Heat</button>
+            <button id="btnZones" class="nd-btn"
+                style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;" title="Zones">🔲
+                Zones</button>
+            <button id="btnZoneDraw" class="nd-btn"
+                style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;display:none;" title="Draw zone">✏ Draw</button>
+            <button id="btnShowAll" class="nd-btn"
+                style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;" title="Show all players">🔄 All</button>
+            <button id="btnClear" class="nd-btn"
+                style="background:#2a0a0a;padding:7px 11px;font-size:12px;color:#f87171;" title="Clear all shots">🗑 Clear</button>
             <button id="btnSetup" class="nd-btn"
                 style="background:#C83803;padding:7px 14px;font-size:12px;color:white;font-weight:900;text-transform:uppercase;letter-spacing:.06em;">⚙
                 Setup</button>
         </div>
     </header>
 
+    <!-- ══ QUARTER BAR ══ -->
+    <div id="quarterBar" style="background:#080f1e;border-bottom:1px solid #1e3254;padding:5px 14px;display:flex;align-items:center;gap:8px;flex-shrink:0;z-index:28;overflow-x:auto;">
+        <span style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:#3a5070;flex-shrink:0;">Period</span>
+        <button class="q-chip sel" data-q="1">Q1</button>
+        <button class="q-chip" data-q="2">Q2</button>
+        <button class="q-chip" data-q="3">Q3</button>
+        <button class="q-chip" data-q="4">Q4</button>
+        <button class="q-chip" data-q="0">All</button>
+    </div>
+
     <!-- ══ BODY ══ -->
     <div style="flex:1;display:flex;overflow:hidden;">
+
+        <!-- ══ LEFT STATS PANEL ══ -->
+        <div id="statsLeft" class="side-panel">
+            <div class="sp-header" id="spLeftHeader"></div>
+            <div class="sp-body" id="spLeftBody"></div>
+            <div class="sp-footer" id="spLeftFooter"></div>
+        </div>
 
         <!-- Court -->
         <div class="court-container" id="courtContainer">
@@ -416,6 +575,14 @@
                         <path d="M735,215 A55,55 0 0,0 735,285" stroke="rgba(180,210,240,.25)" stroke-dasharray="4,4" />
                     </g>
                     <!-- SVG labels removed — replaced by HTML overlays below -->
+                </svg>
+
+                <!-- ══ ZONE LAYER (SVG OVERLAY) ══ -->
+                <svg id="zoneLayer"
+                     viewBox="0 0 940 500"
+                     preserveAspectRatio="xMidYMid meet"
+                     style="position:absolute;inset:0;width:100%;height:100%;z-index:12;display:none;pointer-events:none;">
+                     <!-- zones rendered dynamically here -->
                 </svg>
 
                 <!-- ── BIG TEAM LABELS (HTML overlay) ── -->
@@ -461,59 +628,12 @@
             </div>
         </div>
 
-        <!-- ══ STATS PANEL ══ -->
-        <aside id="statsPanel">
-            <!-- Header -->
-            <div
-                style="background:#080f1e;border-bottom:1px solid #1a2d4a;padding:8px 10px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;">
-                <span
-                    style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.09em;color:#4a6080;">Live
-                    Stats</span>
-                <div style="display:flex;gap:6px;align-items:center;">
-                    <button id="btnShowAll" class="nd-btn"
-                        style="font-size:9px;font-weight:900;text-transform:uppercase;padding:3px 7px;background:#1a2d4a;color:#94a3b8;border-radius:6px;"
-                        title="Show all players">All</button>
-                    <button id="btnClear" class="nd-btn"
-                        style="font-size:9px;font-weight:900;text-transform:uppercase;padding:3px 7px;background:#2a0a0a;color:#f87171;border-radius:6px;"
-                        title="Clear shots">Clear</button>
-                </div>
-            </div>
-
-            <!-- Filter hint -->
-            <div id="filterHint"
-                style="display:none;background:#1a2d4a;padding:4px 10px;font-size:9px;font-weight:700;color:#C83803;text-transform:uppercase;letter-spacing:.07em;flex-shrink:0;">
-                🎯 Filtering active — tap players to toggle
-            </div>
-
-            <!-- Team tabs -->
-            <div id="teamTabs" style="display:flex;gap:5px;padding:6px 8px 4px;flex-wrap:wrap;flex-shrink:0;"></div>
-
-            <!-- Scrollable rows -->
-            <div id="statsBody" style="flex:1;overflow-y:auto;padding:4px 6px 8px;"></div>
-
-            <!-- Totals footer -->
-            <div
-                style="background:#080f1e;border-top:1px solid #1a2d4a;padding:8px 10px;display:grid;grid-template-columns:1fr 1fr 1fr;text-align:center;flex-shrink:0;">
-                <div>
-                    <div
-                        style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#4a6080;">
-                        FG%</div>
-                    <div id="totFg" style="font-size:18px;font-weight:900;">0%</div>
-                </div>
-                <div style="border-left:1px solid #1a2d4a;border-right:1px solid #1a2d4a;">
-                    <div
-                        style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#C83803;">
-                        🔥 Hot</div>
-                    <div id="totHot" style="font-size:18px;font-weight:900;">--</div>
-                </div>
-                <div>
-                    <div
-                        style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:#4a6080;">
-                        PTS</div>
-                    <div id="totPts" style="font-size:18px;font-weight:900;">0</div>
-                </div>
-            </div>
-        </aside>
+        <!-- ══ RIGHT STATS PANEL ══ -->
+        <div id="statsRight" class="side-panel">
+            <div class="sp-header" id="spRightHeader"></div>
+            <div class="sp-body" id="spRightBody"></div>
+            <div class="sp-footer" id="spRightFooter"></div>
+        </div>
     </div>
 
     <!-- ══ SHOT MODAL ══ -->
@@ -603,6 +723,13 @@
         let heatOn = false;
         let heatObj = null;
 
+        // Quarter & Zone state
+        let currentQuarter = 1; // 1-4; 0 = "All"
+        let zones = JSON.parse(localStorage.getItem('nd_zones')) || null;
+        let zonesOn = false;
+        let zoneDrawMode = false;
+        let zoneDraftPoints = []; // Array of {x, y} for freeform drawing
+
         // ══════════════════════════════════
         // ELEMENT REFS
         // ══════════════════════════════════
@@ -639,6 +766,7 @@
             syncCanvas();
             window.addEventListener('resize', syncCanvas);
             updateCourtLabels();
+            initZones();
             renderAll();
             // Show stats toggle on mobile
             if (window.innerWidth <= 640) document.getElementById('btnStatsToggle').style.display = 'block';
@@ -663,11 +791,169 @@
             labelRight.style.borderColor = c1;
         }
 
+        // Wire up quarter selector
+        document.querySelectorAll('.q-chip').forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentQuarter = +btn.dataset.q;
+                document.querySelectorAll('.q-chip').forEach(b => b.classList.remove('sel'));
+                btn.classList.add('sel');
+                renderAll();
+            });
+        });
+
+        // Initialize zones
+        function initZones() {
+            if (zones !== null) return;
+            zones = [
+                { id: 'z_left_paint', cx: 95, cy: 250, r: 75, label: 'L Paint' },
+                { id: 'z_right_paint', cx: 845, cy: 250, r: 75, label: 'R Paint' },
+            ];
+            saveZones();
+        }
+
+        function saveZones() {
+            localStorage.setItem('nd_zones', JSON.stringify(zones));
+        }
+
+        // Convert client coordinates to SVG viewBox coordinates
+        function clientToSvg(clientX, clientY) {
+            const svg = document.getElementById('zoneLayer');
+            const pt = svg.createSVGPoint();
+            pt.x = clientX;
+            pt.y = clientY;
+            const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+            return { x: svgPt.x, y: svgPt.y };
+        }
+
+        function deleteZone(id) {
+            if (confirm('Delete this zone?')) {
+                zones = zones.filter(z => z.id !== id);
+                saveZones();
+                renderZones();
+            }
+        }
+
+        // Wire up zone buttons
+        document.getElementById('btnZones').addEventListener('click', function() {
+            zonesOn = !zonesOn;
+            zoneDrawMode = false;
+            const zoneLayer = document.getElementById('zoneLayer');
+            zoneLayer.style.display = zonesOn ? 'block' : 'none';
+            zoneLayer.style.pointerEvents = zonesOn ? 'auto' : 'none';
+            this.style.color = zonesOn ? '#C83803' : '#94a3b8';
+            this.style.background = zonesOn ? '#2a0a0a' : '#1a2d4a';
+            document.getElementById('btnZoneDraw').style.display = zonesOn ? 'inline-flex' : 'none';
+            if (zonesOn) renderZones();
+            else renderZones();
+        });
+
+        document.getElementById('btnZoneDraw').addEventListener('click', function() {
+            zoneDrawMode = !zoneDrawMode;
+            this.style.color = zoneDrawMode ? '#C83803' : '#94a3b8';
+            this.style.background = zoneDrawMode ? '#2a0a0a' : '#1a2d4a';
+            const zoneLayer = document.getElementById('zoneLayer');
+            zoneLayer.style.cursor = zoneDrawMode ? 'crosshair' : 'default';
+
+            if (zoneDrawMode) {
+                alert('Zone Draw Mode:\n\n• Click and drag to draw zone\n• Release to finish\n• Right-click to cancel\n\nClicks on the court will not log shots while drawing.');
+            }
+        });
+
+        // Zone drawing event handlers (freeform drag-to-draw)
+        const zoneLayer = document.getElementById('zoneLayer');
+        let isDrawing = false;
+
+        zoneLayer.addEventListener('mousedown', e => {
+            if (!zoneDrawMode) return;
+            e.preventDefault();
+            isDrawing = true;
+            zoneDraftPoints = [];
+            const pos = clientToSvg(e.clientX, e.clientY);
+            zoneDraftPoints.push(pos);
+
+            // Create new polyline for drawing
+            const p = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
+            p.id = 'zoneDraftPolygon';
+            p.setAttribute('stroke', '#C83803');
+            p.setAttribute('fill', 'none');
+            p.setAttribute('stroke-width', '3');
+            p.setAttribute('stroke-linecap', 'round');
+            p.setAttribute('stroke-linejoin', 'round');
+            p.setAttribute('opacity', '0.8');
+            zoneLayer.appendChild(p);
+        });
+
+        zoneLayer.addEventListener('mousemove', e => {
+            if (!isDrawing || !zoneDrawMode) return;
+            e.preventDefault();
+            const pos = clientToSvg(e.clientX, e.clientY);
+            zoneDraftPoints.push(pos);
+
+            const draft = document.getElementById('zoneDraftPolygon');
+            if (draft) {
+                const pointsStr = zoneDraftPoints.map(pt => `${Math.round(pt.x)},${Math.round(pt.y)}`).join(' ');
+                draft.setAttribute('points', pointsStr);
+            }
+        });
+
+        zoneLayer.addEventListener('mouseup', e => {
+            if (!isDrawing) return;
+            isDrawing = false;
+            e.preventDefault();
+
+            if (zoneDraftPoints.length < 10) {
+                const draft = document.getElementById('zoneDraftPolygon');
+                if (draft) draft.remove();
+                zoneDraftPoints = [];
+                return;
+            }
+
+            // Convert polyline to closed polygon for zone
+            const draft = document.getElementById('zoneDraftPolygon');
+            if (draft) draft.remove();
+
+            const label = prompt('Zone label (e.g. "Paint", "Corner 3"):') || 'Zone';
+            zones.push({
+                id: 'z_' + Date.now(),
+                points: zoneDraftPoints.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })),
+                label
+            });
+            saveZones();
+            zoneDraftPoints = [];
+            renderZones();
+        });
+
+        // Right-click to cancel zone drawing
+        zoneLayer.addEventListener('contextmenu', e => {
+            if (!zoneDrawMode && !isDrawing) return;
+            e.preventDefault();
+            isDrawing = false;
+            zoneDraftPoints = [];
+            const draft = document.getElementById('zoneDraftPolygon');
+            if (draft) draft.remove();
+        });
+
         function hexToRgba(hex, a) {
             const r = parseInt(hex.slice(1, 3), 16);
             const g = parseInt(hex.slice(3, 5), 16);
             const b = parseInt(hex.slice(5, 7), 16);
             return `rgba(${r},${g},${b},${a})`;
+        }
+
+        // Normalize player entry to {num, name} format (backward compat)
+        function normPlayer(p) {
+            if (typeof p === 'string') return { num: p, name: '' };
+            return p;
+        }
+
+        // Calculate points for a shot (2pt or 3pt)
+        function shotPoints(shot) {
+            if (!shot.make) return 0;
+            const cx = (shot.x / 100) * 940, cy = (shot.y / 100) * 500;
+            const dl = Math.hypot(cx - 54, cy - 250);
+            const dr = Math.hypot(cx - 886, cy - 250);
+            const is3 = cx < 470 ? (dl > 237.5 || cy < 45 || cy > 455) : (dr > 237.5 || cy < 45 || cy > 455);
+            return is3 ? 3 : 2;
         }
 
         // ══════════════════════════════════
@@ -676,6 +962,202 @@
         function renderAll() {
             renderShots();
             renderStats();
+            renderScore();
+            renderZones();
+        }
+
+        // ══════════════════════════════════
+        // SCORE DISPLAY
+        // ══════════════════════════════════
+        function renderScore() {
+            const visibleShots = shots.filter(shotVisible);
+            const pts = teams.map((_, ti) => {
+                let p = 0;
+                visibleShots.filter(s => s.teamIdx === ti && s.make).forEach(s => {
+                    p += shotPoints(s);
+                });
+                return p;
+            });
+
+            const homeEl = document.getElementById('scoreHome');
+            const awayEl = document.getElementById('scoreAway');
+            if (homeEl) {
+                homeEl.textContent = pts[0] ?? 0;
+                homeEl.style.color = teams[0]?.color || '#3b82f6';
+            }
+            if (awayEl) {
+                awayEl.textContent = pts[1] ?? 0;
+                awayEl.style.color = teams[1]?.color || '#f97316';
+            }
+        }
+
+        // ══════════════════════════════════
+        // ZONE RENDERING
+        // ══════════════════════════════════
+        function renderZones() {
+            const zoneLayer = document.getElementById('zoneLayer');
+            // Clear all zone elements (except draft polygon if drawing)
+            [...zoneLayer.children].forEach(el => {
+                if (el.id !== 'zoneDraftPolygon') el.remove();
+            });
+
+            if (!zonesOn || !zones) return;
+
+            const visibleShots = shots.filter(shotVisible);
+
+            zones.forEach(zone => {
+                // Helper: Point in polygon (ray casting algorithm)
+                const pointInPolygon = (x, y, points) => {
+                    let inside = false;
+                    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
+                        const xi = points[i].x, yi = points[i].y;
+                        const xj = points[j].x, yj = points[j].y;
+                        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
+                        if (intersect) inside = !inside;
+                    }
+                    return inside;
+                };
+
+                // Compute FG% for shots inside and outside this zone
+                const inside = visibleShots.filter(s => {
+                    const sx = (s.x / 100) * 940;
+                    const sy = (s.y / 100) * 500;
+                    return pointInPolygon(sx, sy, zone.points);
+                });
+                const outside = visibleShots.filter(s => {
+                    const sx = (s.x / 100) * 940;
+                    const sy = (s.y / 100) * 500;
+                    return !pointInPolygon(sx, sy, zone.points);
+                });
+
+                const insideMakes = inside.filter(s => s.make).length;
+                const insideAtt = inside.length;
+                const outsideMakes = outside.filter(s => s.make).length;
+                const outsideAtt = outside.length;
+
+                const insidePct = insideAtt > 0 ? Math.round((insideMakes / insideAtt) * 100) : 0;
+                const outsidePct = outsideAtt > 0 ? Math.round((outsideMakes / outsideAtt) * 100) : 0;
+                const insidePctStr = insideAtt > 0 ? `${insidePct}%` : '--';
+                const outsidePctStr = outsideAtt > 0 ? `${outsidePct}%` : '--';
+
+                // Color based on inside FG%
+                let insideColor = '#4a6080';
+                let fillColor = 'rgba(42,60,90,.12)';
+                if (insideAtt > 0) {
+                    if (insidePct >= 50) { insideColor = '#22c55e'; fillColor = 'rgba(34,197,94,.12)'; }
+                    else if (insidePct >= 30) { insideColor = '#fbbf24'; fillColor = 'rgba(251,191,36,.12)'; }
+                    else { insideColor = '#f87171'; fillColor = 'rgba(200,56,3,.12)'; }
+                }
+
+                // Zone polygon
+                const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+                const pointsStr = zone.points.map(p => `${p.x},${p.y}`).join(' ');
+                poly.setAttribute('points', pointsStr);
+                poly.setAttribute('class', 'zone-circle');
+                poly.setAttribute('stroke', insideColor);
+                poly.setAttribute('fill', fillColor);
+                poly.style.cursor = 'pointer';
+                poly.addEventListener('contextmenu', e => { e.preventDefault(); deleteZone(zone.id); });
+                zoneLayer.appendChild(poly);
+
+                // Find centroid for label placement
+                let centerX = 0, centerY = 0;
+                zone.points.forEach(p => { centerX += p.x; centerY += p.y; });
+                centerX /= zone.points.length;
+                centerY /= zone.points.length;
+
+                // Zone label
+                const labelEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                labelEl.setAttribute('x', centerX);
+                labelEl.setAttribute('y', centerY - 20);
+                labelEl.setAttribute('class', 'zone-label');
+                labelEl.setAttribute('text-anchor', 'middle');
+                labelEl.textContent = zone.label;
+                zoneLayer.appendChild(labelEl);
+
+                // Inside FG% stats
+                const insideEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                insideEl.setAttribute('x', centerX);
+                insideEl.setAttribute('y', centerY - 4);
+                insideEl.setAttribute('class', 'zone-fg');
+                insideEl.setAttribute('fill', insideColor);
+                insideEl.setAttribute('text-anchor', 'middle');
+                insideEl.setAttribute('font-size', '13');
+                insideEl.setAttribute('font-weight', '700');
+                insideEl.textContent = `IN: ${insidePctStr}`;
+                zoneLayer.appendChild(insideEl);
+
+                // Inside attempts count
+                const insideAttEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                insideAttEl.setAttribute('x', centerX);
+                insideAttEl.setAttribute('y', centerY + 10);
+                insideAttEl.setAttribute('class', 'zone-fg');
+                insideAttEl.setAttribute('fill', '#4a6080');
+                insideAttEl.setAttribute('text-anchor', 'middle');
+                insideAttEl.setAttribute('font-size', '10');
+                insideAttEl.textContent = insideAtt > 0 ? `${insideMakes}/${insideAtt}` : '--/0';
+                zoneLayer.appendChild(insideAttEl);
+
+                // Outside FG% stats
+                const outsideEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                outsideEl.setAttribute('x', centerX);
+                outsideEl.setAttribute('y', centerY + 26);
+                outsideEl.setAttribute('class', 'zone-fg');
+                outsideEl.setAttribute('fill', '#94a3b8');
+                outsideEl.setAttribute('text-anchor', 'middle');
+                outsideEl.setAttribute('font-size', '11');
+                outsideEl.textContent = `OUT: ${outsidePctStr}`;
+                zoneLayer.appendChild(outsideEl);
+
+                // Outside attempts count
+                const outsideAttEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                outsideAttEl.setAttribute('x', centerX);
+                outsideAttEl.setAttribute('y', centerY + 36);
+                outsideAttEl.setAttribute('class', 'zone-fg');
+                outsideAttEl.setAttribute('fill', '#4a6080');
+                outsideAttEl.setAttribute('text-anchor', 'middle');
+                outsideAttEl.setAttribute('font-size', '9');
+                outsideAttEl.textContent = outsideAtt > 0 ? `${outsideMakes}/${outsideAtt}` : '--/0';
+                zoneLayer.appendChild(outsideAttEl);
+
+                // Delete button (small X in corner of zone)
+                const bounds = zone.points.reduce((acc, p) => ({
+                    minX: Math.min(acc.minX, p.x),
+                    maxX: Math.max(acc.maxX, p.x),
+                    minY: Math.min(acc.minY, p.y),
+                    maxY: Math.max(acc.maxY, p.y)
+                }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
+
+                const deleteX = bounds.maxX - 8;
+                const deleteY = bounds.minY + 8;
+
+                const deleteBtn = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+                deleteBtn.setAttribute('cx', deleteX);
+                deleteBtn.setAttribute('cy', deleteY);
+                deleteBtn.setAttribute('r', '6');
+                deleteBtn.setAttribute('fill', '#f87171');
+                deleteBtn.setAttribute('stroke', 'white');
+                deleteBtn.setAttribute('stroke-width', '1.5');
+                deleteBtn.style.cursor = 'pointer';
+                deleteBtn.addEventListener('click', e => {
+                    e.stopPropagation();
+                    deleteZone(zone.id);
+                });
+                deleteBtn.addEventListener('mouseenter', () => deleteBtn.setAttribute('r', '7'));
+                deleteBtn.addEventListener('mouseleave', () => deleteBtn.setAttribute('r', '6'));
+                zoneLayer.appendChild(deleteBtn);
+
+                const deleteText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+                deleteText.setAttribute('x', deleteX);
+                deleteText.setAttribute('y', deleteY + 2);
+                deleteText.setAttribute('text-anchor', 'middle');
+                deleteText.setAttribute('font-size', '10');
+                deleteText.setAttribute('font-weight', 'bold');
+                deleteText.setAttribute('fill', 'white');
+                deleteText.setAttribute('pointer-events', 'none');
+                deleteText.textContent = '×';
+                zoneLayer.appendChild(deleteText);
+            });
         }
 
         // ══════════════════════════════════
@@ -684,6 +1166,8 @@
         function shotVisible(shot) {
             const team = teams[shot.teamIdx];
             if (!team || !team.active) return false;
+            // Quarter filter: 0 = All (no filter). Old shots with no quarter always pass.
+            if (currentQuarter !== 0 && shot.quarter != null && shot.quarter !== currentQuarter) return false;
             if (playerFilter.size === 0) return true;
             return playerFilter.has(`${shot.teamIdx}:${shot.playerId}`);
         }
@@ -756,115 +1240,115 @@
         }
 
         // ══════════════════════════════════
-        // STATS PANEL
+        // SPLIT STATS PANELS
         // ══════════════════════════════════
         function renderStats() {
-            // Team tabs
-            teamTabs.innerHTML = '';
-            teams.forEach((team, i) => {
-                const btn = document.createElement('button');
-                btn.style.cssText = `font-size:10px;font-weight:900;padding:3px 8px;border-radius:99px;border:2px solid ${team.color};color:${team.active ? '#0B162A' : team.color};background:${team.active ? team.color : 'transparent'};cursor:pointer;transition:all .15s;touch-action:manipulation;`;
-                btn.textContent = team.name;
-                btn.onclick = () => { team.active = !team.active; saveTeams(); renderAll(); };
-                teamTabs.appendChild(btn);
-            });
+            renderTeamPanel(0, 'spLeftHeader', 'spLeftBody', 'spLeftFooter');
+            renderTeamPanel(1, 'spRightHeader', 'spRightBody', 'spRightFooter');
+        }
 
-            // Filter hint
-            filterHint.style.display = playerFilter.size > 0 ? 'block' : 'none';
+        function renderTeamPanel(ti, headerId, bodyId, footerId) {
+            const team = teams[ti];
+            if (!team) return;
+
+            const headerEl = document.getElementById(headerId);
+            const bodyEl = document.getElementById(bodyId);
+            const footerEl = document.getElementById(footerId);
+            if (!headerEl || !bodyEl || !footerEl) return;
+
+            // Header: team name + ON/OFF toggle
+            const shapeIcon = { circle: '◯', square: '▢', diamond: '◆', triangle: '△' }[team.shape] || '◯';
+            headerEl.innerHTML = `
+                <div style="display:flex;align-items:center;justify-content:space-between;">
+                    <span style="color:${team.color};display:flex;align-items:center;gap:4px;"><span style="font-size:11px;">${shapeIcon}</span> <span style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;">${team.name}</span></span>
+                    <button onclick="toggleTeamActive(${ti})" style="font-size:8px;padding:2px 6px;border-radius:6px;background:${team.active ? team.color : 'transparent'};border:1px solid ${team.color};color:${team.active ? '#0B162A' : team.color};cursor:pointer;font-weight:900;">
+                        ${team.active ? 'ON' : 'OFF'}
+                    </button>
+                </div>`;
 
             // Player rows
-            statsBody.innerHTML = '';
+            bodyEl.innerHTML = '';
+            const teamShots = shots.filter(s => s.teamIdx === ti && shotVisible(s));
+            const playerNums = [...new Set([
+                ...team.players.map(p => normPlayer(p).num),
+                ...shots.filter(s => s.teamIdx === ti).map(s => s.playerId)
+            ])];
+
             let totMakes = 0, totAtt = 0, totPts = 0;
-            let hotKey = '--', hotPct = -1;
 
-            teams.forEach((team, ti) => {
-                const teamShots = shots.filter(s => s.teamIdx === ti);
-                const pids = [...new Set([...team.players, ...teamShots.map(s => s.playerId)])];
-                if (pids.length === 0 && !teamShots.length) return;
+            playerNums.forEach(pid => {
+                const player = normPlayer(team.players.find(p => normPlayer(p).num === pid) || pid);
+                const ps = teamShots.filter(s => s.playerId === pid);
+                const allPs = shots.filter(s => s.teamIdx === ti && s.playerId === pid);
+                const makes = ps.filter(s => s.make).length;
+                const att = ps.length;
+                const pct = att > 0 ? Math.round((makes / att) * 100) : null;
+                const pts = ps.filter(s => s.make).reduce((a, s) => a + shotPoints(s), 0);
+                totMakes += makes; totAtt += att; totPts += pts;
 
-                // Team section header
-                const shapeIcon = { circle: '◯', square: '▢', diamond: '◆', triangle: '△' }[team.shape] || '◯';
-                const hdr = document.createElement('div');
-                hdr.style.cssText = `display:flex;align-items:center;gap:6px;padding:8px 4px 4px;margin-top:4px;`;
-                hdr.innerHTML = `<span style="color:${team.color};font-size:13px;">${shapeIcon}</span>
-      <span style="font-size:10px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:${team.color};">${team.name}</span>`;
-                statsBody.appendChild(hdr);
+                const key = `${ti}:${pid}`;
+                const isFiltered = playerFilter.size > 0 && !playerFilter.has(key);
+                const pctColor = pct === null ? '#4a6080' : pct >= 50 ? '#22c55e' : pct >= 30 ? '#fbbf24' : '#f87171';
 
-                if (pids.length === 0) {
-                    const msg = document.createElement('div');
-                    msg.style.cssText = 'font-size:10px;color:#2a3c5a;padding:3px 6px;font-style:italic;';
-                    msg.textContent = 'No shots yet';
-                    statsBody.appendChild(msg);
-                    return;
-                }
-
-                pids.forEach(pid => {
-                    const ps = teamShots.filter(s => s.playerId === pid);
-                    const makes = ps.filter(s => s.make).length;
-                    const att = ps.length;
-                    const pct = att > 0 ? Math.round((makes / att) * 100) : null;
-                    const key = `${ti}:${pid}`;
-                    const isFiltered = playerFilter.size > 0 && !playerFilter.has(key);
-
-                    // Estimate pts
-                    let pts = 0;
-                    ps.filter(s => s.make).forEach(s => {
-                        const cx = (s.x / 100) * 940, cy = (s.y / 100) * 500;
-                        const dl = Math.hypot(cx - 54, cy - 250);
-                        const dr = Math.hypot(cx - 886, cy - 250);
-                        const is3 = cx < 470 ? (dl > 237.5 || cy < 45 || cy > 455) : (dr > 237.5 || cy < 45 || cy > 455);
-                        pts += is3 ? 3 : 2;
-                    });
-
-                    if (team.active && !isFiltered) {
-                        totMakes += makes; totAtt += att; totPts += pts;
-                        if (att >= 2 && pct > hotPct) { hotPct = pct; hotKey = `#${pid}`; }
-                    }
-
-                    const pctColor = pct === null ? '#4a6080' : pct >= 50 ? '#22c55e' : pct >= 30 ? '#fbbf24' : '#f87171';
-                    const shapeStyle = team.shape === 'circle' ? 'border-radius:50%' : team.shape === 'square' ? 'border-radius:4px' : 'border-radius:50%';
-
-                    const row = document.createElement('div');
-                    row.className = `player-row${isFiltered ? ' dimmed' : ''}`;
-                    row.title = `Click to ${playerFilter.has(key) ? 'deselect' : 'highlight'} #${pid}`;
-                    row.innerHTML = `
-        <div style="width:28px;height:28px;${shapeStyle};border:2px solid ${team.color};display:flex;align-items:center;justify-content:center;font-size:10px;font-weight:900;color:${team.color};background:rgba(0,0,0,.4);">${pid}</div>
-        <div>
-          <div style="font-size:11px;font-weight:700;">#${pid}</div>
-          <div style="font-size:9px;color:#3a5070;">${pts}pts</div>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:13px;font-weight:900;color:#22c55e;">${makes}</div>
-          <div style="font-size:8px;color:#3a5070;">MK</div>
-        </div>
-        <div style="text-align:center;">
-          <div style="font-size:13px;font-weight:900;color:#C83803;">${att - makes}</div>
-          <div style="font-size:8px;color:#3a5070;">MS</div>
-        </div>
-        <div style="text-align:right;">
-          <div style="font-size:13px;font-weight:900;color:${pctColor};">${pct !== null ? pct + '%' : '--'}</div>
-          <div style="font-size:8px;color:#3a5070;">${att}att</div>
-        </div>`;
-
-                    row.onclick = () => {
-                        if (playerFilter.has(key)) playerFilter.delete(key);
-                        else playerFilter.add(key);
-                        renderAll();
-                    };
-                    statsBody.appendChild(row);
-                });
+                const row = document.createElement('div');
+                row.className = `player-row${isFiltered ? ' dimmed' : ''}`;
+                const shapeStyle = team.shape === 'circle' ? 'border-radius:50%' : team.shape === 'square' ? 'border-radius:4px' : 'border-radius:50%';
+                row.innerHTML = `
+                    <div style="width:24px;height:24px;${shapeStyle};border:2px solid ${team.color};display:flex;align-items:center;justify-content:center;font-size:9px;font-weight:900;color:${team.color};background:rgba(0,0,0,.4);">${pid}</div>
+                    <div style="overflow:hidden;">
+                        <div style="font-size:10px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                            ${player.name ? player.name : `#${pid}`}
+                        </div>
+                        <div style="font-size:8px;color:#3a5070;">${pts}pts</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:11px;font-weight:900;color:#22c55e;">${makes}</div>
+                        <div style="font-size:7px;color:#3a5070;">MK</div>
+                    </div>
+                    <div style="text-align:center;">
+                        <div style="font-size:11px;font-weight:900;color:#C83803;">${att-makes}</div>
+                        <div style="font-size:7px;color:#3a5070;">MS</div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:11px;font-weight:900;color:${pctColor};">${pct!==null?pct+'%':'--'}</div>
+                        <div style="font-size:7px;color:#3a5070;">${att}att</div>
+                    </div>`;
+                row.onclick = () => {
+                    if (playerFilter.has(key)) playerFilter.delete(key);
+                    else playerFilter.add(key);
+                    renderAll();
+                };
+                bodyEl.appendChild(row);
             });
 
+            if (playerNums.length === 0) {
+                bodyEl.innerHTML = `<div style="font-size:10px;color:#2a3c5a;padding:8px 6px;font-style:italic;">No shots yet</div>`;
+            }
+
+            // Footer: FG% and PTS
             const fgPct = totAtt > 0 ? Math.round((totMakes / totAtt) * 100) : 0;
-            document.getElementById('totFg').textContent = `${fgPct}%`;
-            document.getElementById('totPts').textContent = totPts;
-            document.getElementById('totHot').textContent = hotKey;
+            footerEl.innerHTML = `
+                <div>
+                    <div class="sp-footer-label">FG%</div>
+                    <div class="sp-footer-val">${fgPct}%</div>
+                </div>
+                <div style="border-left:1px solid #1a2d4a;">
+                    <div class="sp-footer-label" style="color:${team.color};">PTS</div>
+                    <div class="sp-footer-val" style="color:${team.color};">${totPts}</div>
+                </div>`;
+        }
+
+        function toggleTeamActive(ti) {
+            teams[ti].active = !teams[ti].active;
+            saveTeams();
+            renderAll();
         }
 
         // ══════════════════════════════════
         // COURT CLICK
         // ══════════════════════════════════
         courtWrapper.addEventListener('click', e => {
+            if (zoneDrawMode) return; // Don't log shots while drawing zones
             if (e.target.closest('.sm')) return;
             const r = courtWrapper.getBoundingClientRect();
             currentTap = {
@@ -922,13 +1406,16 @@
                 playerChips.innerHTML = '<span style="font-size:11px;color:#3a5070;font-style:italic;align-self:center;">Type a jersey # below, or add players in Setup</span>';
                 return;
             }
-            team.players.forEach(pid => {
+            team.players.forEach(p => {
+                const player = normPlayer(p);
+                const pid = player.num;
                 const btn = document.createElement('button');
                 btn.className = 'chip' + (pid === lastPlayer ? ' sel' : '');
                 btn.style.borderColor = team.color;
                 btn.style.color = pid === lastPlayer ? '#0B162A' : team.color;
                 if (pid === lastPlayer) btn.style.background = team.color;
-                btn.textContent = `#${pid}`;
+                const label = player.name ? `#${pid} ${player.name}` : `#${pid}`;
+                btn.textContent = label;
                 btn.onclick = () => {
                     lastPlayer = pid;
                     playerNumInput.value = pid;
@@ -948,12 +1435,12 @@
             localStorage.setItem('nd_lastPlayer', pid);
 
             const team = teams[selTeamIdx] || teams[0];
-            if (pid !== '?' && !team.players.includes(pid)) {
-                team.players.push(pid);
+            if (pid !== '?' && !team.players.some(p => normPlayer(p).num === pid)) {
+                team.players.push({ num: pid, name: '' });
                 saveTeams();
             }
 
-            shots.push({ id: Date.now(), playerId: pid, teamIdx: selTeamIdx, make, x: currentTap.x, y: currentTap.y, ts: new Date().toISOString() });
+            shots.push({ id: Date.now(), playerId: pid, teamIdx: selTeamIdx, make, x: currentTap.x, y: currentTap.y, quarter: currentQuarter === 0 ? null : currentQuarter, ts: new Date().toISOString() });
             saveShots();
             haptic(make ? 'make' : 'miss');
             closeShot();
@@ -985,9 +1472,41 @@
         <input type="text" id="tn_${i}" value="${team.name}" placeholder="${DEF_NAMES[i]}" class="nd-input" style="flex:1;">
         <span style="font-size:11px;font-weight:700;color:${team.color};padding:3px 10px;border-radius:99px;border:1px solid ${team.color};flex-shrink:0;">${team.shape}</span>
       </div>
-      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#4a6080;display:block;margin-bottom:6px;">Jersey Numbers (comma-separated)</label>
-      <input type="text" id="tp_${i}" value="${team.players.join(', ')}" class="nd-input" placeholder="e.g. 3, 11, 23, 32, 00">
+      <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#4a6080;display:block;margin-bottom:8px;">Players (Jersey # + Name)</label>
+      <div id="playerEntries_${i}" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+      <button type="button" id="btnAddPlayer_${i}" class="nd-btn" style="background:#1a2d4a;color:#94a3b8;padding:6px 12px;font-size:12px;">+ Add Player</button>
     `;
+
+                // Build player entry rows
+                const entriesContainer = sec.querySelector(`#playerEntries_${i}`);
+                team.players.forEach((p, pi) => {
+                    const player = normPlayer(p);
+                    const row = document.createElement('div');
+                    row.className = 'player-entry-row';
+                    row.style.cssText = 'display:grid;grid-template-columns:80px 1fr 28px;gap:6px;';
+                    row.innerHTML = `
+        <input type="text" class="pe-num nd-input" placeholder="#" value="${player.num}" style="font-weight:900;text-align:center;">
+        <input type="text" class="pe-name nd-input" placeholder="Name (optional)" value="${player.name || ''}">
+        <button type="button" class="nd-btn" style="background:#1a2d4a;color:#f87171;padding:4px 8px;font-size:12px;">✕</button>
+      `;
+                    row.querySelector('button').onclick = () => row.remove();
+                    entriesContainer.appendChild(row);
+                });
+
+                // Add player button
+                sec.querySelector(`#btnAddPlayer_${i}`).onclick = () => {
+                    const row = document.createElement('div');
+                    row.className = 'player-entry-row';
+                    row.style.cssText = 'display:grid;grid-template-columns:80px 1fr 28px;gap:6px;';
+                    row.innerHTML = `
+        <input type="text" class="pe-num nd-input" placeholder="#" style="font-weight:900;text-align:center;">
+        <input type="text" class="pe-name nd-input" placeholder="Name (optional)">
+        <button type="button" class="nd-btn" style="background:#1a2d4a;color:#f87171;padding:4px 8px;font-size:12px;">✕</button>
+      `;
+                    row.querySelector('button').onclick = () => row.remove();
+                    entriesContainer.appendChild(row);
+                };
+
                 // Live color preview on color input
                 sec.querySelector(`#tc_${i}`).addEventListener('input', e => {
                     const colorVal = e.target.value;
@@ -1003,8 +1522,19 @@
             teams.forEach((team, i) => {
                 team.color = document.getElementById(`tc_${i}`).value;
                 team.name = document.getElementById(`tn_${i}`).value.trim() || DEF_NAMES[i];
-                const raw = document.getElementById(`tp_${i}`).value;
-                team.players = raw.split(',').map(s => s.trim()).filter(Boolean);
+
+                // Read player entries from the dynamic form
+                const sec = teamSetupList.children[i];
+                if (sec) {
+                    const entries = [...sec.querySelectorAll('.player-entry-row')];
+                    team.players = entries
+                        .map(row => {
+                            const num = row.querySelector('.pe-num').value.trim();
+                            const name = row.querySelector('.pe-name').value.trim();
+                            return num ? { num, name } : null;
+                        })
+                        .filter(Boolean);
+                }
             });
             saveTeams();
             closeSetup();
@@ -1052,7 +1582,10 @@
         // ══════════════════════════════════
         // MOBILE STATS TOGGLE
         // ══════════════════════════════════
-        document.getElementById('btnStatsToggle').onclick = () => statsPanel.classList.toggle('open');
+        document.getElementById('btnStatsToggle').onclick = () => {
+            document.getElementById('statsLeft').classList.toggle('open');
+            document.getElementById('statsRight').classList.toggle('open');
+        };
 
         // ══════════════════════════════════
         // PERSISTENCE

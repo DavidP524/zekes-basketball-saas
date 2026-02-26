@@ -602,6 +602,19 @@
                     border-bottom:1px solid #1e3254;
                     transition:background .15s;
                 " title="Clear all shots">🗑 Clear All</button>
+                <button id="btnStatsMenu" style="
+                    display:block;
+                    width:100%;
+                    padding:14px 16px;
+                    background:none;
+                    border:none;
+                    text-align:left;
+                    color:#94a3b8;
+                    cursor:pointer;
+                    font-size:14px;
+                    border-bottom:1px solid #1e3254;
+                    transition:background .15s;
+                " title="View team stats">📊 Stats</button>
                 <button id="btnSetupMenu" style="
                     display:block;
                     width:100%;
@@ -801,6 +814,24 @@
         </div>
     </div>
 
+    <!-- ══ STATS MODAL ══ -->
+    <div class="overlay" id="statsModal">
+        <div class="ov-bg" id="statsBg"></div>
+        <div class="drawer drawer-scroll" id="statsDrawer" style="max-height:90dvh;overflow-y:auto;">
+            <div class="pill"></div>
+            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;">
+                <h2 style="font-size:18px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;">📊 Game Stats
+                </h2>
+                <button id="statsClose"
+                    style="background:none;border:none;color:#4a6080;font-size:20px;cursor:pointer;padding:4px;">✕</button>
+            </div>
+
+            <div id="statsContent" style="display:flex;flex-direction:column;gap:14px;">
+                <!-- Stats will be rendered here -->
+            </div>
+        </div>
+    </div>
+
     <script>
         // ══════════════════════════════════
         // CONSTANTS & STATE
@@ -856,6 +887,11 @@
         const setupBg = document.getElementById('setupBg');
         const setupClose = document.getElementById('setupClose');
         const teamSetupList = document.getElementById('teamSetupList');
+
+        const statsModal = document.getElementById('statsModal');
+        const statsBg = document.getElementById('statsBg');
+        const statsClose = document.getElementById('statsClose');
+        const statsContent = document.getElementById('statsContent');
 
         const statsPanel = document.getElementById('statsPanel');
         const statsBody = document.getElementById('statsBody');
@@ -973,6 +1009,10 @@
             document.getElementById('btnZoneDrawMenu').style.display = zonesOn ? 'block' : 'none';
             renderZones();
             document.getElementById('menuDropdown').style.display = 'none'; // Close menu
+
+            if (zonesOn && (!zones || zones.length === 0)) {
+                alert('📍 ZONES EXPLAINED:\n\n• Zones are areas on the court (paint, 3pt line, etc)\n• Click ✏ Draw to create a zone\n• Drag your finger to outline the area\n• Each zone shows shooting % INSIDE vs OUTSIDE\n\nExample: Draw the paint zone to see if you shoot better from inside or outside the paint!');
+            }
         };
         const btnZonesOld = document.getElementById('btnZones');
         if (btnZonesOld) btnZonesOld.addEventListener('click', toggleZones);
@@ -1653,6 +1693,98 @@
         function closeSetup() { setupModal.classList.remove('open'); }
         setupBg.addEventListener('click', closeSetup);
         setupClose.addEventListener('click', closeSetup);
+
+        // ══════════════════════════════════
+        // STATS MODAL
+        // ══════════════════════════════════
+        function openStatsModal() {
+            buildStatsUI();
+            statsModal.classList.add('open');
+            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
+        }
+        function closeStats() { statsModal.classList.remove('open'); }
+        statsBg.addEventListener('click', closeStats);
+        statsClose.addEventListener('click', closeStats);
+        document.getElementById('btnStatsMenu').onclick = openStatsModal;
+
+        function buildStatsUI() {
+            statsContent.innerHTML = '';
+            const visibleShots = shots.filter(shotVisible);
+
+            teams.forEach((team, ti) => {
+                if (!team.active) return;
+                const teamShots = visibleShots.filter(s => s.teamIdx === ti);
+                const teamMakes = teamShots.filter(s => s.make).length;
+                const teamAtt = teamShots.length;
+                const teamPcts = teamShots.filter(s => s.make).reduce((sum, s) => sum + shotPoints(s), 0);
+                const teamFgPct = teamAtt > 0 ? Math.round((teamMakes / teamAtt) * 100) : 0;
+
+                const section = document.createElement('div');
+                section.style.cssText = 'background:#0a1628;border:1px solid #1e3254;border-radius:14px;padding:14px;';
+
+                // Team header
+                const header = document.createElement('div');
+                header.style.cssText = 'display:flex;align-items:center;gap:8px;margin-bottom:12px;';
+                header.innerHTML = `
+                    <span style="width:12px;height:12px;border-radius:50%;background:${team.color};"></span>
+                    <span style="font-size:14px;font-weight:900;color:${team.color};">${team.name}</span>
+                `;
+                section.appendChild(header);
+
+                // Stats grid
+                const stats = document.createElement('div');
+                stats.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:12px;';
+                stats.innerHTML = `
+                    <div style="background:rgba(0,0,0,.3);padding:10px;border-radius:8px;text-align:center;">
+                        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">FG%</div>
+                        <div style="font-size:18px;font-weight:900;color:#22c55e;">${teamFgPct}%</div>
+                    </div>
+                    <div style="background:rgba(0,0,0,.3);padding:10px;border-radius:8px;text-align:center;">
+                        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Points</div>
+                        <div style="font-size:18px;font-weight:900;color:#fbbf24;">${teamPcts}</div>
+                    </div>
+                    <div style="background:rgba(0,0,0,.3);padding:10px;border-radius:8px;text-align:center;">
+                        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Makes</div>
+                        <div style="font-size:18px;font-weight:900;color:#3b82f6;">${teamMakes}</div>
+                    </div>
+                    <div style="background:rgba(0,0,0,.3);padding:10px;border-radius:8px;text-align:center;">
+                        <div style="font-size:11px;color:#94a3b8;margin-bottom:4px;">Attempts</div>
+                        <div style="font-size:18px;font-weight:900;color:#94a3b8;">${teamAtt}</div>
+                    </div>
+                `;
+                section.appendChild(stats);
+
+                // Player breakdown
+                if (teamShots.length > 0) {
+                    const playersDiv = document.createElement('div');
+                    playersDiv.style.cssText = 'border-top:1px solid #1e3254;padding-top:12px;';
+                    playersDiv.innerHTML = '<div style="font-size:11px;font-weight:900;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;">Player Breakdown</div>';
+
+                    const playerNums = [...new Set(teamShots.map(s => s.playerId))].sort();
+                    playerNums.forEach(pid => {
+                        const playerShots = teamShots.filter(s => s.playerId === pid);
+                        const playerMakes = playerShots.filter(s => s.make).length;
+                        const playerAtt = playerShots.length;
+                        const playerPct = playerAtt > 0 ? Math.round((playerMakes / playerAtt) * 100) : 0;
+                        const playerPts = playerShots.filter(s => s.make).reduce((sum, s) => sum + shotPoints(s), 0);
+                        const player = team.players.find(p => normPlayer(p).num === pid);
+                        const playerName = player ? normPlayer(player).name || `#${pid}` : `#${pid}`;
+
+                        playersDiv.innerHTML += `
+                            <div style="display:flex;justify-content:space-between;align-items:center;padding:8px 0;border-bottom:1px solid #0e1e38;font-size:12px;">
+                                <span style="color:#94a3b8;">${playerName}</span>
+                                <span style="color:#fbbf24;font-weight:700;">${playerPct}%</span>
+                                <span style="color:#3a5070;">${playerMakes}/${playerAtt}</span>
+                                <span style="color:#22c55e;font-weight:900;">${playerPts}pts</span>
+                            </div>
+                        `;
+                    });
+                    section.appendChild(playersDiv);
+                }
+
+                statsContent.appendChild(section);
+            });
+        }
 
         function buildSetupUI() {
             teamSetupList.innerHTML = '';

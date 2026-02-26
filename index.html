@@ -362,6 +362,9 @@
             <button id="btnStatsToggle" class="nd-btn"
                 style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;display:none;"
                 title="Stats">📊</button>
+            <button id="btnUndo" class="nd-btn"
+                style="background:#1a2d4a;padding:7px 13px;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"
+                title="Undo last shot">↩ Undo</button>
             <button id="btnHeatmap" class="nd-btn"
                 style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;" title="Heatmap">🔥
                 Heat</button>
@@ -412,12 +415,49 @@
                         <circle cx="886" cy="250" r="8.5" stroke="#C83803" stroke-width="3" fill="rgba(200,56,3,.15)" />
                         <path d="M735,215 A55,55 0 0,0 735,285" stroke="rgba(180,210,240,.25)" stroke-dasharray="4,4" />
                     </g>
-                    <!-- TEAM LABELS at baskets — updated dynamically -->
-                    <text id="labelLeft" x="72" y="490" font-size="13" font-weight="700" fill="rgba(255,255,255,.35)"
-                        text-anchor="middle" letter-spacing="1">HOME</text>
-                    <text id="labelRight" x="868" y="490" font-size="13" font-weight="700" fill="rgba(255,255,255,.35)"
-                        text-anchor="middle" letter-spacing="1">AWAY</text>
+                    <!-- SVG labels removed — replaced by HTML overlays below -->
                 </svg>
+
+                <!-- ── BIG TEAM LABELS (HTML overlay) ── -->
+                <div id="labelLeft" style="
+                    position:absolute;
+                    bottom:6px;
+                    left:6px;
+                    font-size:clamp(13px,3.2vw,22px);
+                    font-weight:900;
+                    font-style:italic;
+                    letter-spacing:.08em;
+                    text-transform:uppercase;
+                    pointer-events:none;
+                    z-index:15;
+                    padding:4px 10px;
+                    border-radius:8px;
+                    border-left:4px solid;
+                    background:rgba(0,0,0,.45);
+                    backdrop-filter:blur(4px);
+                    line-height:1;
+                    text-shadow:0 1px 4px rgba(0,0,0,.8);
+                ">HOME</div>
+
+                <div id="labelRight" style="
+                    position:absolute;
+                    bottom:6px;
+                    right:6px;
+                    font-size:clamp(13px,3.2vw,22px);
+                    font-weight:900;
+                    font-style:italic;
+                    letter-spacing:.08em;
+                    text-transform:uppercase;
+                    pointer-events:none;
+                    z-index:15;
+                    padding:4px 10px;
+                    border-radius:8px;
+                    border-right:4px solid;
+                    background:rgba(0,0,0,.45);
+                    backdrop-filter:blur(4px);
+                    line-height:1;
+                    text-shadow:0 1px 4px rgba(0,0,0,.8);
+                ">AWAY</div>
             </div>
         </div>
 
@@ -613,11 +653,14 @@
         }
 
         function updateCourtLabels() {
-            labelLeft.textContent = (teams[0]?.name || 'Home').toUpperCase();
+            const c0 = teams[0]?.color || '#3b82f6';
+            const c1 = teams[1]?.color || '#f97316';
+            labelLeft.textContent  = (teams[0]?.name || 'Home').toUpperCase();
             labelRight.textContent = (teams[1]?.name || 'Away').toUpperCase();
-            // Color labels with team color
-            labelLeft.setAttribute('fill', hexToRgba(teams[0]?.color || '#fff', 0.45));
-            labelRight.setAttribute('fill', hexToRgba(teams[1]?.color || '#fff', 0.45));
+            labelLeft.style.color       = c0;
+            labelLeft.style.borderColor = c0;
+            labelRight.style.color       = c1;
+            labelRight.style.borderColor = c1;
         }
 
         function hexToRgba(hex, a) {
@@ -985,6 +1028,25 @@
         document.getElementById('btnShowAll').onclick = () => { playerFilter.clear(); renderAll(); };
         document.getElementById('btnClear').onclick = () => {
             if (confirm('Clear all shot data?')) { shots = []; saveShots(); playerFilter.clear(); renderAll(); haptic('miss'); }
+        };
+
+        // ══════════════════════════════════
+        // UNDO LAST SHOT
+        // ══════════════════════════════════
+        document.getElementById('btnUndo').onclick = () => {
+            if (shots.length === 0) return;
+            shots.pop();
+            saveShots();
+            renderAll();
+            haptic('tap');
+            // Brief visual flash on button
+            const btn = document.getElementById('btnUndo');
+            btn.style.background = '#C83803';
+            btn.style.color = 'white';
+            setTimeout(() => {
+                btn.style.background = '#1a2d4a';
+                btn.style.color = '#94a3b8';
+            }, 600);
         };
 
         // ══════════════════════════════════

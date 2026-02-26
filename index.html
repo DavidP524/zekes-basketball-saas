@@ -236,6 +236,25 @@
             .side-panel.open {
                 display: flex;
             }
+
+            /* Mobile button optimizations for easier tapping */
+            .nd-btn {
+                padding: 10px 14px !important;
+                font-size: 13px !important;
+                min-width: 44px;
+                min-height: 44px;
+                display: flex !important;
+                align-items: center;
+                justify-content: center;
+            }
+
+            header {
+                padding: 12px 8px !important;
+            }
+
+            #scoreDisplay {
+                font-size: clamp(11px, 2vw, 16px) !important;
+            }
         }
 
         .side-panel .player-row {
@@ -581,7 +600,7 @@
                 <svg id="zoneLayer"
                      viewBox="0 0 940 500"
                      preserveAspectRatio="xMidYMid meet"
-                     style="position:absolute;inset:0;width:100%;height:100%;z-index:12;display:none;pointer-events:none;">
+                     style="position:absolute;inset:0;width:100%;height:100%;z-index:12;display:none;pointer-events:none;touch-action:none;">
                      <!-- zones rendered dynamically here -->
                 </svg>
 
@@ -1167,30 +1186,34 @@
                     maxY: Math.max(acc.maxY, p.y)
                 }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
 
-                const deleteX = bounds.maxX - 8;
-                const deleteY = bounds.minY + 8;
+                const deleteX = bounds.maxX - 10;
+                const deleteY = bounds.minY + 10;
+                const deleteBtnRadius = 8; // Larger for mobile touch targets
 
                 const deleteBtn = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
                 deleteBtn.setAttribute('cx', deleteX);
                 deleteBtn.setAttribute('cy', deleteY);
-                deleteBtn.setAttribute('r', '6');
+                deleteBtn.setAttribute('r', deleteBtnRadius);
                 deleteBtn.setAttribute('fill', '#f87171');
                 deleteBtn.setAttribute('stroke', 'white');
-                deleteBtn.setAttribute('stroke-width', '1.5');
+                deleteBtn.setAttribute('stroke-width', '2');
                 deleteBtn.style.cursor = 'pointer';
+                deleteBtn.style.touchAction = 'manipulation';
                 deleteBtn.addEventListener('click', e => {
                     e.stopPropagation();
                     deleteZone(zone.id);
                 });
-                deleteBtn.addEventListener('mouseenter', () => deleteBtn.setAttribute('r', '7'));
-                deleteBtn.addEventListener('mouseleave', () => deleteBtn.setAttribute('r', '6'));
+                deleteBtn.addEventListener('mouseenter', () => deleteBtn.setAttribute('r', deleteBtnRadius + 1));
+                deleteBtn.addEventListener('mouseleave', () => deleteBtn.setAttribute('r', deleteBtnRadius));
+                deleteBtn.addEventListener('touchstart', e => deleteBtn.setAttribute('r', deleteBtnRadius + 1), { passive: true });
+                deleteBtn.addEventListener('touchend', e => deleteBtn.setAttribute('r', deleteBtnRadius), { passive: true });
                 zoneLayer.appendChild(deleteBtn);
 
                 const deleteText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
                 deleteText.setAttribute('x', deleteX);
-                deleteText.setAttribute('y', deleteY + 2);
+                deleteText.setAttribute('y', deleteY + 2.5);
                 deleteText.setAttribute('text-anchor', 'middle');
-                deleteText.setAttribute('font-size', '10');
+                deleteText.setAttribute('font-size', '12');
                 deleteText.setAttribute('font-weight', 'bold');
                 deleteText.setAttribute('fill', 'white');
                 deleteText.setAttribute('pointer-events', 'none');
@@ -1384,19 +1407,31 @@
         }
 
         // ══════════════════════════════════
-        // COURT CLICK
+        // COURT CLICK (mouse & touch)
         // ══════════════════════════════════
-        courtWrapper.addEventListener('click', e => {
+        function handleCourtTap(clientX, clientY) {
             if (zoneDrawMode) return; // Don't log shots while drawing zones
-            if (e.target.closest('.sm')) return;
             const r = courtWrapper.getBoundingClientRect();
             currentTap = {
-                x: Math.max(.5, Math.min(99.5, ((e.clientX - r.left) / r.width) * 100)),
-                y: Math.max(.5, Math.min(99.5, ((e.clientY - r.top) / r.height) * 100))
+                x: Math.max(.5, Math.min(99.5, ((clientX - r.left) / r.width) * 100)),
+                y: Math.max(.5, Math.min(99.5, ((clientY - r.top) / r.height) * 100))
             };
             haptic('tap');
             openShot();
+        }
+
+        courtWrapper.addEventListener('click', e => {
+            if (e.target.closest('.sm')) return;
+            handleCourtTap(e.clientX, e.clientY);
         });
+
+        // Touch support for mobile
+        courtWrapper.addEventListener('touchstart', e => {
+            if (e.target.closest('.sm')) return;
+            if (zoneDrawMode) return;
+            const touch = e.touches[0];
+            handleCourtTap(touch.clientX, touch.clientY);
+        }, { passive: false });
 
         // ══════════════════════════════════
         // SHOT MODAL

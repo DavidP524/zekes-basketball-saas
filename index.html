@@ -495,92 +495,126 @@
 
     <!-- ══ HEADER ══ -->
     <header
-        style="background:#0B162A;border-bottom:1px solid #1e3254;padding:10px 14px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;z-index:30;position:relative;">
-        <div style="display:flex;align-items:center;gap:10px;">
-            <h1 style="color:#C83803;font-size:22px;font-weight:900;font-style:italic;letter-spacing:-.5px;">1 AND DONE
-            </h1>
-            <span style="font-size:9px;color:#3a5070;font-weight:700;text-transform:uppercase;letter-spacing:.1em;">Apex
-                Digital</span>
+        style="background:#0B162A;border-bottom:1px solid #1e3254;padding:12px 14px;display:flex;justify-content:space-between;align-items:center;flex-shrink:0;z-index:30;position:relative;gap:8px;">
+        <!-- Left: Logo -->
+        <div style="display:flex;align-items:center;gap:8px;min-width:0;">
+            <h1 style="color:#C83803;font-size:18px;font-weight:900;font-style:italic;letter-spacing:-.5px;margin:0;white-space:nowrap;">1 AND DONE</h1>
         </div>
 
-        <!-- Centered score display -->
-        <div id="scoreDisplay" style="display:flex;align-items:center;gap:10px;font-size:clamp(13px,2.5vw,20px);font-weight:900;letter-spacing:.04em;position:absolute;left:50%;transform:translateX(-50%);pointer-events:none;white-space:nowrap;">
+        <!-- Center: Score -->
+        <div id="scoreDisplay" style="display:flex;align-items:center;gap:8px;font-size:16px;font-weight:900;letter-spacing:.04em;flex:1;justify-content:center;pointer-events:none;white-space:nowrap;">
             <span id="scoreHome" style="color:#3b82f6;">0</span>
             <span style="color:#2a3c5a;font-size:.8em;">—</span>
             <span id="scoreAway" style="color:#f97316;">0</span>
         </div>
 
-        <div style="display:flex;gap:8px;align-items:center;">
-            <button id="btnStatsToggle" class="nd-btn"
-                style="background:#1a2d4a;padding:7px 11px;font-size:12px;color:#94a3b8;display:none;"
-                title="Stats">📊</button>
-            <button id="btnUndo" class="nd-btn"
-                style="background:#1a2d4a;padding:10px 14px;font-size:12px;color:#94a3b8;display:flex;align-items:center;gap:5px;"
-                title="Undo last shot">↩ Undo</button>
-            <button id="btnZones" class="nd-btn"
-                style="background:#1a2d4a;padding:10px 14px;font-size:12px;color:#94a3b8;" title="Zones">🔲
-                Zones</button>
-            <button id="btnZoneDraw" class="nd-btn"
-                style="background:#1a2d4a;padding:10px 14px;font-size:12px;color:#94a3b8;display:none;" title="Draw zone">✏ Draw</button>
-            <button id="btnShowAll" class="nd-btn"
-                style="background:#1a2d4a;padding:10px 14px;font-size:12px;color:#94a3b8;" title="Show all players">🔄 All</button>
-
-            <!-- Hamburger Menu -->
-            <div style="position:relative;display:flex;align-items:center;">
-                <button id="btnMenu" class="nd-btn"
-                    style="background:#1a2d4a;padding:10px 14px;font-size:14px;color:#94a3b8;cursor:pointer;">☰</button>
-                <div id="menuDropdown" style="
+        <!-- Right: Menu Button Only -->
+        <div style="position:relative;display:flex;align-items:center;">
+            <button id="btnMenu" class="nd-btn"
+                style="background:#1a2d4a;padding:12px 14px;font-size:18px;color:#94a3b8;cursor:pointer;flex-shrink:0;">☰</button>
+            <div id="menuDropdown" style="
+                display:none;
+                position:absolute;
+                top:100%;
+                right:0;
+                background:#0B162A;
+                border:1px solid #1e3254;
+                border-radius:8px;
+                margin-top:4px;
+                z-index:50;
+                min-width:180px;
+                box-shadow:0 8px 24px rgba(0,0,0,.4);">
+                <button id="btnUndoMenu" style="
+                    display:block;
+                    width:100%;
+                    padding:14px 16px;
+                    background:none;
+                    border:none;
+                    text-align:left;
+                    color:#94a3b8;
+                    cursor:pointer;
+                    font-size:14px;
+                    border-bottom:1px solid #1e3254;
+                    transition:background .15s;
+                " title="Undo last shot">↩ Undo</button>
+                <button id="btnZonesMenu" style="
+                    display:block;
+                    width:100%;
+                    padding:14px 16px;
+                    background:none;
+                    border:none;
+                    text-align:left;
+                    color:#94a3b8;
+                    cursor:pointer;
+                    font-size:14px;
+                    border-bottom:1px solid #1e3254;
+                    transition:background .15s;
+                " title="Toggle zones">🔲 Zones</button>
+                <button id="btnZoneDrawMenu" style="
                     display:none;
-                    position:absolute;
-                    top:100%;
-                    right:0;
-                    background:#0B162A;
-                    border:1px solid #1e3254;
-                    border-radius:8px;
-                    margin-top:4px;
-                    z-index:50;
-                    min-width:160px;
-                    box-shadow:0 4px 12px rgba(0,0,0,.3);">
-                    <button id="btnHeatmapMenu" style="
-                        display:block;
-                        width:100%;
-                        padding:12px 16px;
-                        background:none;
-                        border:none;
-                        text-align:left;
-                        color:#94a3b8;
-                        cursor:pointer;
-                        font-size:13px;
-                        border-bottom:1px solid #1e3254;
-                        transition:background .15s;
-                    " title="Heatmap">🔥 Heatmap</button>
-                    <button id="btnClearMenu" style="
-                        display:block;
-                        width:100%;
-                        padding:12px 16px;
-                        background:none;
-                        border:none;
-                        text-align:left;
-                        color:#f87171;
-                        cursor:pointer;
-                        font-size:13px;
-                        border-bottom:1px solid #1e3254;
-                        transition:background .15s;
-                    " title="Clear all shots">🗑 Clear All</button>
-                    <button id="btnSetupMenu" style="
-                        display:block;
-                        width:100%;
-                        padding:12px 16px;
-                        background:none;
-                        border:none;
-                        text-align:left;
-                        color:#C83803;
-                        cursor:pointer;
-                        font-size:13px;
-                        font-weight:900;
-                        transition:background .15s;
-                    ">⚙ Setup</button>
-                </div>
+                    width:100%;
+                    padding:14px 16px;
+                    background:none;
+                    border:none;
+                    text-align:left;
+                    color:#94a3b8;
+                    cursor:pointer;
+                    font-size:14px;
+                    border-bottom:1px solid #1e3254;
+                    transition:background .15s;
+                " title="Draw zone">✏ Draw</button>
+                <button id="btnShowAllMenu" style="
+                    display:block;
+                    width:100%;
+                    padding:14px 16px;
+                    background:none;
+                    border:none;
+                    text-align:left;
+                    color:#94a3b8;
+                    cursor:pointer;
+                    font-size:14px;
+                    border-bottom:1px solid #1e3254;
+                    transition:background .15s;
+                " title="Show all players">🔄 All</button>
+                <button id="btnHeatmapMenu" style="
+                    display:block;
+                    width:100%;
+                    padding:14px 16px;
+                    background:none;
+                    border:none;
+                    text-align:left;
+                    color:#94a3b8;
+                    cursor:pointer;
+                    font-size:14px;
+                    border-bottom:1px solid #1e3254;
+                    transition:background .15s;
+                " title="Heatmap">🔥 Heatmap</button>
+                <button id="btnClearMenu" style="
+                    display:block;
+                    width:100%;
+                    padding:14px 16px;
+                    background:none;
+                    border:none;
+                    text-align:left;
+                    color:#f87171;
+                    cursor:pointer;
+                    font-size:14px;
+                    border-bottom:1px solid #1e3254;
+                    transition:background .15s;
+                " title="Clear all shots">🗑 Clear All</button>
+                <button id="btnSetupMenu" style="
+                    display:block;
+                    width:100%;
+                    padding:14px 16px;
+                    background:none;
+                    border:none;
+                    text-align:left;
+                    color:#C83803;
+                    cursor:pointer;
+                    font-size:14px;
+                    font-weight:900;
+                    transition:background .15s;
+                ">⚙ Setup</button>
             </div>
         </div>
     </header>
@@ -930,30 +964,32 @@
         });
 
         // Wire up zone buttons
-        document.getElementById('btnZones').addEventListener('click', function() {
+        const toggleZones = function() {
             zonesOn = !zonesOn;
             zoneDrawMode = false;
             const zoneLayer = document.getElementById('zoneLayer');
             zoneLayer.style.display = zonesOn ? 'block' : 'none';
             zoneLayer.style.pointerEvents = zonesOn ? 'auto' : 'none';
-            this.style.color = zonesOn ? '#C83803' : '#94a3b8';
-            this.style.background = zonesOn ? '#2a0a0a' : '#1a2d4a';
-            document.getElementById('btnZoneDraw').style.display = zonesOn ? 'inline-flex' : 'none';
-            if (zonesOn) renderZones();
-            else renderZones();
-        });
+            document.getElementById('btnZoneDrawMenu').style.display = zonesOn ? 'block' : 'none';
+            renderZones();
+            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
+        };
+        const btnZonesOld = document.getElementById('btnZones');
+        if (btnZonesOld) btnZonesOld.addEventListener('click', toggleZones);
+        document.getElementById('btnZonesMenu').addEventListener('click', toggleZones);
 
-        document.getElementById('btnZoneDraw').addEventListener('click', function() {
+        const toggleZoneDraw = function() {
             zoneDrawMode = !zoneDrawMode;
-            this.style.color = zoneDrawMode ? '#C83803' : '#94a3b8';
-            this.style.background = zoneDrawMode ? '#2a0a0a' : '#1a2d4a';
             const zoneLayer = document.getElementById('zoneLayer');
             zoneLayer.style.cursor = zoneDrawMode ? 'crosshair' : 'default';
-
             if (zoneDrawMode) {
                 alert('Zone Draw Mode:\n\n• Click and drag to draw zone\n• Release to finish\n• Right-click to cancel\n\nClicks on the court will not log shots while drawing.');
             }
-        });
+            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
+        };
+        const btnZoneDrawOld = document.getElementById('btnZoneDraw');
+        if (btnZoneDrawOld) btnZoneDrawOld.addEventListener('click', toggleZoneDraw);
+        document.getElementById('btnZoneDrawMenu').addEventListener('click', toggleZoneDraw);
 
         // Zone drawing event handlers (mobile-optimized freeform drag-to-draw)
         const zoneLayer = document.getElementById('zoneLayer');
@@ -1716,7 +1752,14 @@
         // ══════════════════════════════════
         // SHOW ALL / CLEAR
         // ══════════════════════════════════
-        document.getElementById('btnShowAll').onclick = () => { playerFilter.clear(); renderAll(); };
+        const doShowAll = () => {
+            playerFilter.clear();
+            renderAll();
+            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
+        };
+        const btnShowAllOld = document.getElementById('btnShowAll');
+        if (btnShowAllOld) btnShowAllOld.onclick = doShowAll;
+        document.getElementById('btnShowAllMenu').onclick = doShowAll;
 
         const doClear = () => {
             if (confirm('Clear all shot data?')) {
@@ -1735,21 +1778,18 @@
         // ══════════════════════════════════
         // UNDO LAST SHOT
         // ══════════════════════════════════
-        document.getElementById('btnUndo').onclick = () => {
+        const doUndo = () => {
             if (shots.length === 0) return;
             shots.pop();
             saveShots();
             renderAll();
             haptic('tap');
-            // Brief visual flash on button
-            const btn = document.getElementById('btnUndo');
-            btn.style.background = '#C83803';
-            btn.style.color = 'white';
-            setTimeout(() => {
-                btn.style.background = '#1a2d4a';
-                btn.style.color = '#94a3b8';
-            }, 600);
+            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
         };
+        const btnUndoOld = document.getElementById('btnUndo');
+        if (btnUndoOld) btnUndoOld.onclick = doUndo;
+        const btnUndoMenu = document.getElementById('btnUndoMenu');
+        if (btnUndoMenu) btnUndoMenu.onclick = doUndo;
 
         // ══════════════════════════════════
         // MOBILE STATS TOGGLE

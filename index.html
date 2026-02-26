@@ -537,32 +537,6 @@
                     border-bottom:1px solid #1e3254;
                     transition:background .15s;
                 " title="Undo last shot">↩ Undo</button>
-                <button id="btnZonesMenu" style="
-                    display:block;
-                    width:100%;
-                    padding:14px 16px;
-                    background:none;
-                    border:none;
-                    text-align:left;
-                    color:#94a3b8;
-                    cursor:pointer;
-                    font-size:14px;
-                    border-bottom:1px solid #1e3254;
-                    transition:background .15s;
-                " title="Toggle zones">🔲 Zones</button>
-                <button id="btnZoneDrawMenu" style="
-                    display:none;
-                    width:100%;
-                    padding:14px 16px;
-                    background:none;
-                    border:none;
-                    text-align:left;
-                    color:#94a3b8;
-                    cursor:pointer;
-                    font-size:14px;
-                    border-bottom:1px solid #1e3254;
-                    transition:background .15s;
-                " title="Draw zone">✏ Draw</button>
                 <button id="btnShowAllMenu" style="
                     display:block;
                     width:100%;
@@ -691,14 +665,6 @@
                         <path d="M735,215 A55,55 0 0,0 735,285" stroke="rgba(180,210,240,.25)" stroke-dasharray="4,4" />
                     </g>
                     <!-- SVG labels removed — replaced by HTML overlays below -->
-                </svg>
-
-                <!-- ══ ZONE LAYER (SVG OVERLAY) ══ -->
-                <svg id="zoneLayer"
-                     viewBox="0 0 940 500"
-                     preserveAspectRatio="xMidYMid meet"
-                     style="position:absolute;inset:0;width:100%;height:100%;z-index:12;display:none;pointer-events:none;touch-action:none;">
-                     <!-- zones rendered dynamically here -->
                 </svg>
 
                 <!-- ── BIG TEAM LABELS (HTML overlay) ── -->
@@ -859,10 +825,6 @@
 
         // Quarter & Zone state
         let currentQuarter = 1; // 1-4; 0 = "All"
-        let zones = JSON.parse(localStorage.getItem('nd_zones')) || null;
-        let zonesOn = false;
-        let zoneDrawMode = false;
-        let zoneDraftPoints = []; // Array of {x, y} for freeform drawing
 
         // ══════════════════════════════════
         // ELEMENT REFS
@@ -950,28 +912,6 @@
             saveZones();
         }
 
-        function saveZones() {
-            localStorage.setItem('nd_zones', JSON.stringify(zones));
-        }
-
-        // Convert client coordinates to SVG viewBox coordinates
-        function clientToSvg(clientX, clientY) {
-            const svg = document.getElementById('zoneLayer');
-            const pt = svg.createSVGPoint();
-            pt.x = clientX;
-            pt.y = clientY;
-            const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
-            return { x: svgPt.x, y: svgPt.y };
-        }
-
-        function deleteZone(id) {
-            if (confirm('Delete this zone?')) {
-                zones = zones.filter(z => z.id !== id);
-                saveZones();
-                renderZones();
-            }
-        }
-
         // ══════════════════════════════════
         // HAMBURGER MENU
         // ══════════════════════════════════
@@ -999,150 +939,6 @@
             });
         });
 
-        // Wire up zone buttons
-        const toggleZones = function() {
-            zonesOn = !zonesOn;
-            zoneDrawMode = false;
-            const zoneLayer = document.getElementById('zoneLayer');
-            zoneLayer.style.display = zonesOn ? 'block' : 'none';
-            zoneLayer.style.pointerEvents = zonesOn ? 'auto' : 'none';
-            document.getElementById('btnZoneDrawMenu').style.display = zonesOn ? 'block' : 'none';
-            renderZones();
-            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
-
-            if (zonesOn && (!zones || zones.length === 0)) {
-                alert('📍 ZONES EXPLAINED:\n\n• Zones are areas on the court (paint, 3pt line, etc)\n• Click ✏ Draw to create a zone\n• Drag your finger to outline the area\n• Each zone shows shooting % INSIDE vs OUTSIDE\n\nExample: Draw the paint zone to see if you shoot better from inside or outside the paint!');
-            }
-        };
-        const btnZonesOld = document.getElementById('btnZones');
-        if (btnZonesOld) btnZonesOld.addEventListener('click', toggleZones);
-        document.getElementById('btnZonesMenu').addEventListener('click', toggleZones);
-
-        const toggleZoneDraw = function() {
-            zoneDrawMode = !zoneDrawMode;
-            const zoneLayer = document.getElementById('zoneLayer');
-            zoneLayer.style.cursor = zoneDrawMode ? 'crosshair' : 'default';
-            if (zoneDrawMode) {
-                alert('Zone Draw Mode:\n\n• Click and drag to draw zone\n• Release to finish\n• Right-click to cancel\n\nClicks on the court will not log shots while drawing.');
-            }
-            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
-        };
-        const btnZoneDrawOld = document.getElementById('btnZoneDraw');
-        if (btnZoneDrawOld) btnZoneDrawOld.addEventListener('click', toggleZoneDraw);
-        document.getElementById('btnZoneDrawMenu').addEventListener('click', toggleZoneDraw);
-
-        // Zone drawing event handlers (mobile-optimized freeform drag-to-draw)
-        const zoneLayer = document.getElementById('zoneLayer');
-        let isDrawing = false;
-        let lastDrawTime = 0;
-
-        function startDrawing(clientX, clientY) {
-            if (!zoneDrawMode || isDrawing) return;
-            isDrawing = true;
-            zoneDraftPoints = [];
-            const pos = clientToSvg(clientX, clientY);
-            zoneDraftPoints.push(pos);
-
-            // Create new polyline for drawing
-            const p = document.createElementNS('http://www.w3.org/2000/svg', 'polyline');
-            p.id = 'zoneDraftPolygon';
-            p.setAttribute('stroke', '#C83803');
-            p.setAttribute('fill', 'none');
-            p.setAttribute('stroke-width', '4');
-            p.setAttribute('stroke-linecap', 'round');
-            p.setAttribute('stroke-linejoin', 'round');
-            p.setAttribute('opacity', '0.9');
-            zoneLayer.appendChild(p);
-        }
-
-        function drawPoint(clientX, clientY) {
-            if (!isDrawing || !zoneDrawMode) return;
-            const now = Date.now();
-            if (now - lastDrawTime < 16) return; // Throttle to ~60fps on mobile
-            lastDrawTime = now;
-
-            const pos = clientToSvg(clientX, clientY);
-            // Only add point if it's far enough from last point (reduce noise)
-            if (zoneDraftPoints.length === 0 || Math.hypot(pos.x - zoneDraftPoints[zoneDraftPoints.length - 1].x, pos.y - zoneDraftPoints[zoneDraftPoints.length - 1].y) > 3) {
-                zoneDraftPoints.push(pos);
-
-                const draft = document.getElementById('zoneDraftPolygon');
-                if (draft) {
-                    const pointsStr = zoneDraftPoints.map(pt => `${Math.round(pt.x)},${Math.round(pt.y)}`).join(' ');
-                    draft.setAttribute('points', pointsStr);
-                }
-            }
-        }
-
-        function finishDrawing() {
-            if (!isDrawing) return;
-            isDrawing = false;
-
-            if (zoneDraftPoints.length < 10) {
-                const draft = document.getElementById('zoneDraftPolygon');
-                if (draft) draft.remove();
-                zoneDraftPoints = [];
-                return;
-            }
-
-            // Convert polyline to closed polygon for zone
-            const draft = document.getElementById('zoneDraftPolygon');
-            if (draft) draft.remove();
-
-            const label = prompt('Zone label (e.g. "Paint", "Corner 3"):') || 'Zone';
-            zones.push({
-                id: 'z_' + Date.now(),
-                points: zoneDraftPoints.map(p => ({ x: Math.round(p.x), y: Math.round(p.y) })),
-                label
-            });
-            saveZones();
-            zoneDraftPoints = [];
-            renderZones();
-        }
-
-        // Mouse events
-        zoneLayer.addEventListener('mousedown', e => {
-            if (!zoneDrawMode) return;
-            e.preventDefault();
-            startDrawing(e.clientX, e.clientY);
-        });
-
-        zoneLayer.addEventListener('mousemove', e => {
-            if (!isDrawing || !zoneDrawMode) return;
-            e.preventDefault();
-            drawPoint(e.clientX, e.clientY);
-        });
-
-        zoneLayer.addEventListener('mouseup', () => finishDrawing());
-        zoneLayer.addEventListener('mouseleave', () => finishDrawing());
-
-        // Touch events (mobile support)
-        zoneLayer.addEventListener('touchstart', e => {
-            if (!zoneDrawMode) return;
-            e.preventDefault();
-            const touch = e.touches[0];
-            startDrawing(touch.clientX, touch.clientY);
-        }, { passive: false });
-
-        zoneLayer.addEventListener('touchmove', e => {
-            if (!isDrawing || !zoneDrawMode) return;
-            e.preventDefault();
-            const touch = e.touches[0];
-            drawPoint(touch.clientX, touch.clientY);
-        }, { passive: false });
-
-        zoneLayer.addEventListener('touchend', () => finishDrawing());
-        zoneLayer.addEventListener('touchcancel', () => finishDrawing());
-
-        // Right-click to cancel zone drawing
-        zoneLayer.addEventListener('contextmenu', e => {
-            if (!zoneDrawMode && !isDrawing) return;
-            e.preventDefault();
-            isDrawing = false;
-            zoneDraftPoints = [];
-            const draft = document.getElementById('zoneDraftPolygon');
-            if (draft) draft.remove();
-        });
 
         function hexToRgba(hex, a) {
             const r = parseInt(hex.slice(1, 3), 16);
@@ -1174,7 +970,6 @@
             renderShots();
             renderStats();
             renderScore();
-            renderZones();
         }
 
         // ══════════════════════════════════
@@ -1200,179 +995,6 @@
                 awayEl.textContent = pts[1] ?? 0;
                 awayEl.style.color = teams[1]?.color || '#f97316';
             }
-        }
-
-        // ══════════════════════════════════
-        // ZONE RENDERING
-        // ══════════════════════════════════
-        function renderZones() {
-            const zoneLayer = document.getElementById('zoneLayer');
-            // Clear all zone elements (except draft polygon if drawing)
-            [...zoneLayer.children].forEach(el => {
-                if (el.id !== 'zoneDraftPolygon') el.remove();
-            });
-
-            if (!zonesOn || !zones) return;
-
-            const visibleShots = shots.filter(shotVisible);
-
-            zones.forEach(zone => {
-                // Helper: Point in polygon (ray casting algorithm)
-                const pointInPolygon = (x, y, points) => {
-                    let inside = false;
-                    for (let i = 0, j = points.length - 1; i < points.length; j = i++) {
-                        const xi = points[i].x, yi = points[i].y;
-                        const xj = points[j].x, yj = points[j].y;
-                        const intersect = ((yi > y) !== (yj > y)) && (x < (xj - xi) * (y - yi) / (yj - yi) + xi);
-                        if (intersect) inside = !inside;
-                    }
-                    return inside;
-                };
-
-                // Compute FG% for shots inside and outside this zone
-                const inside = visibleShots.filter(s => {
-                    const sx = (s.x / 100) * 940;
-                    const sy = (s.y / 100) * 500;
-                    return pointInPolygon(sx, sy, zone.points);
-                });
-                const outside = visibleShots.filter(s => {
-                    const sx = (s.x / 100) * 940;
-                    const sy = (s.y / 100) * 500;
-                    return !pointInPolygon(sx, sy, zone.points);
-                });
-
-                const insideMakes = inside.filter(s => s.make).length;
-                const insideAtt = inside.length;
-                const outsideMakes = outside.filter(s => s.make).length;
-                const outsideAtt = outside.length;
-
-                const insidePct = insideAtt > 0 ? Math.round((insideMakes / insideAtt) * 100) : 0;
-                const outsidePct = outsideAtt > 0 ? Math.round((outsideMakes / outsideAtt) * 100) : 0;
-                const insidePctStr = insideAtt > 0 ? `${insidePct}%` : '--';
-                const outsidePctStr = outsideAtt > 0 ? `${outsidePct}%` : '--';
-
-                // Color based on inside FG%
-                let insideColor = '#4a6080';
-                let fillColor = 'rgba(42,60,90,.12)';
-                if (insideAtt > 0) {
-                    if (insidePct >= 50) { insideColor = '#22c55e'; fillColor = 'rgba(34,197,94,.12)'; }
-                    else if (insidePct >= 30) { insideColor = '#fbbf24'; fillColor = 'rgba(251,191,36,.12)'; }
-                    else { insideColor = '#f87171'; fillColor = 'rgba(200,56,3,.12)'; }
-                }
-
-                // Zone polygon
-                const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-                const pointsStr = zone.points.map(p => `${p.x},${p.y}`).join(' ');
-                poly.setAttribute('points', pointsStr);
-                poly.setAttribute('class', 'zone-circle');
-                poly.setAttribute('stroke', insideColor);
-                poly.setAttribute('fill', fillColor);
-                poly.style.cursor = 'pointer';
-                poly.addEventListener('contextmenu', e => { e.preventDefault(); deleteZone(zone.id); });
-                zoneLayer.appendChild(poly);
-
-                // Find centroid for label placement
-                let centerX = 0, centerY = 0;
-                zone.points.forEach(p => { centerX += p.x; centerY += p.y; });
-                centerX /= zone.points.length;
-                centerY /= zone.points.length;
-
-                // Zone label
-                const labelEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                labelEl.setAttribute('x', centerX);
-                labelEl.setAttribute('y', centerY - 20);
-                labelEl.setAttribute('class', 'zone-label');
-                labelEl.setAttribute('text-anchor', 'middle');
-                labelEl.textContent = zone.label;
-                zoneLayer.appendChild(labelEl);
-
-                // Inside FG% stats
-                const insideEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                insideEl.setAttribute('x', centerX);
-                insideEl.setAttribute('y', centerY - 4);
-                insideEl.setAttribute('class', 'zone-fg');
-                insideEl.setAttribute('fill', insideColor);
-                insideEl.setAttribute('text-anchor', 'middle');
-                insideEl.setAttribute('font-size', '13');
-                insideEl.setAttribute('font-weight', '700');
-                insideEl.textContent = `IN: ${insidePctStr}`;
-                zoneLayer.appendChild(insideEl);
-
-                // Inside attempts count
-                const insideAttEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                insideAttEl.setAttribute('x', centerX);
-                insideAttEl.setAttribute('y', centerY + 10);
-                insideAttEl.setAttribute('class', 'zone-fg');
-                insideAttEl.setAttribute('fill', '#4a6080');
-                insideAttEl.setAttribute('text-anchor', 'middle');
-                insideAttEl.setAttribute('font-size', '10');
-                insideAttEl.textContent = insideAtt > 0 ? `${insideMakes}/${insideAtt}` : '--/0';
-                zoneLayer.appendChild(insideAttEl);
-
-                // Outside FG% stats
-                const outsideEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                outsideEl.setAttribute('x', centerX);
-                outsideEl.setAttribute('y', centerY + 26);
-                outsideEl.setAttribute('class', 'zone-fg');
-                outsideEl.setAttribute('fill', '#94a3b8');
-                outsideEl.setAttribute('text-anchor', 'middle');
-                outsideEl.setAttribute('font-size', '11');
-                outsideEl.textContent = `OUT: ${outsidePctStr}`;
-                zoneLayer.appendChild(outsideEl);
-
-                // Outside attempts count
-                const outsideAttEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                outsideAttEl.setAttribute('x', centerX);
-                outsideAttEl.setAttribute('y', centerY + 36);
-                outsideAttEl.setAttribute('class', 'zone-fg');
-                outsideAttEl.setAttribute('fill', '#4a6080');
-                outsideAttEl.setAttribute('text-anchor', 'middle');
-                outsideAttEl.setAttribute('font-size', '9');
-                outsideAttEl.textContent = outsideAtt > 0 ? `${outsideMakes}/${outsideAtt}` : '--/0';
-                zoneLayer.appendChild(outsideAttEl);
-
-                // Delete button (small X in corner of zone)
-                const bounds = zone.points.reduce((acc, p) => ({
-                    minX: Math.min(acc.minX, p.x),
-                    maxX: Math.max(acc.maxX, p.x),
-                    minY: Math.min(acc.minY, p.y),
-                    maxY: Math.max(acc.maxY, p.y)
-                }), { minX: Infinity, maxX: -Infinity, minY: Infinity, maxY: -Infinity });
-
-                const deleteX = bounds.maxX - 10;
-                const deleteY = bounds.minY + 10;
-                const deleteBtnRadius = 8; // Larger for mobile touch targets
-
-                const deleteBtn = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
-                deleteBtn.setAttribute('cx', deleteX);
-                deleteBtn.setAttribute('cy', deleteY);
-                deleteBtn.setAttribute('r', deleteBtnRadius);
-                deleteBtn.setAttribute('fill', '#f87171');
-                deleteBtn.setAttribute('stroke', 'white');
-                deleteBtn.setAttribute('stroke-width', '2');
-                deleteBtn.style.cursor = 'pointer';
-                deleteBtn.style.touchAction = 'manipulation';
-                deleteBtn.addEventListener('click', e => {
-                    e.stopPropagation();
-                    deleteZone(zone.id);
-                });
-                deleteBtn.addEventListener('mouseenter', () => deleteBtn.setAttribute('r', deleteBtnRadius + 1));
-                deleteBtn.addEventListener('mouseleave', () => deleteBtn.setAttribute('r', deleteBtnRadius));
-                deleteBtn.addEventListener('touchstart', e => deleteBtn.setAttribute('r', deleteBtnRadius + 1), { passive: true });
-                deleteBtn.addEventListener('touchend', e => deleteBtn.setAttribute('r', deleteBtnRadius), { passive: true });
-                zoneLayer.appendChild(deleteBtn);
-
-                const deleteText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
-                deleteText.setAttribute('x', deleteX);
-                deleteText.setAttribute('y', deleteY + 2.5);
-                deleteText.setAttribute('text-anchor', 'middle');
-                deleteText.setAttribute('font-size', '12');
-                deleteText.setAttribute('font-weight', 'bold');
-                deleteText.setAttribute('fill', 'white');
-                deleteText.setAttribute('pointer-events', 'none');
-                deleteText.textContent = '×';
-                zoneLayer.appendChild(deleteText);
-            });
         }
 
         // ══════════════════════════════════
@@ -1563,7 +1185,6 @@
         // COURT CLICK (mouse & touch)
         // ══════════════════════════════════
         function handleCourtTap(clientX, clientY) {
-            if (zoneDrawMode) return; // Don't log shots while drawing zones
             const r = courtWrapper.getBoundingClientRect();
             currentTap = {
                 x: Math.max(.5, Math.min(99.5, ((clientX - r.left) / r.width) * 100)),
@@ -1581,7 +1202,6 @@
         // Touch support for mobile
         courtWrapper.addEventListener('touchstart', e => {
             if (e.target.closest('.sm')) return;
-            if (zoneDrawMode) return;
             const touch = e.touches[0];
             handleCourtTap(touch.clientX, touch.clientY);
         }, { passive: false });

@@ -448,46 +448,6 @@
             background: #2a3c5a;
             border-radius: 99px;
         }
-
-        /* zone circles */
-        .zone-circle {
-            fill: none;
-            stroke-width: 2;
-            cursor: pointer;
-        }
-
-        .zone-circle:hover {
-            stroke-width: 3;
-        }
-
-        /* zone label */
-        .zone-label {
-            font-size: 13px;
-            font-weight: 900;
-            text-anchor: middle;
-            dominant-baseline: middle;
-            pointer-events: none;
-            fill: white;
-            text-shadow: 0 1px 3px rgba(0,0,0,.8);
-        }
-
-        /* zone FG% */
-        .zone-fg {
-            font-size: 11px;
-            font-weight: 700;
-            text-anchor: middle;
-            dominant-baseline: middle;
-            pointer-events: none;
-        }
-
-        /* draft circle (while drawing) */
-        #zoneDraftCircle {
-            fill: rgba(200,56,3,.08);
-            stroke: #C83803;
-            stroke-width: 2;
-            stroke-dasharray: 6,4;
-            pointer-events: none;
-        }
     </style>
 </head>
 
@@ -510,6 +470,7 @@
 
         <!-- Right: Menu Button Only -->
         <div style="position:relative;display:flex;align-items:center;">
+            <button id="btnStatsToggle" style="display:none;background:#1a2d4a;padding:12px 14px;font-size:14px;color:#94a3b8;cursor:pointer;flex-shrink:0;border:none;border-radius:6px;transition:background .15s;">📊</button>
             <button id="btnMenu" class="nd-btn"
                 style="background:#1a2d4a;padding:12px 14px;font-size:18px;color:#94a3b8;cursor:pointer;flex-shrink:0;">☰</button>
             <div id="menuDropdown" style="
@@ -855,11 +816,6 @@
         const statsClose = document.getElementById('statsClose');
         const statsContent = document.getElementById('statsContent');
 
-        const statsPanel = document.getElementById('statsPanel');
-        const statsBody = document.getElementById('statsBody');
-        const teamTabs = document.getElementById('teamTabs');
-        const filterHint = document.getElementById('filterHint');
-
         // ══════════════════════════════════
         // INIT
         // ══════════════════════════════════
@@ -870,10 +826,12 @@
             initZones();
             renderAll();
             // Show stats toggle on mobile
-            if (window.innerWidth <= 640) document.getElementById('btnStatsToggle').style.display = 'block';
+            const toggleBtn = document.getElementById('btnStatsToggle');
+            if (toggleBtn && window.innerWidth <= 640) toggleBtn.style.display = 'block';
         }
         window.addEventListener('resize', () => {
-            document.getElementById('btnStatsToggle').style.display = window.innerWidth <= 640 ? 'block' : 'none';
+            const toggleBtn = document.getElementById('btnStatsToggle');
+            if (toggleBtn) toggleBtn.style.display = window.innerWidth <= 640 ? 'block' : 'none';
         });
 
         function syncCanvas() {
@@ -904,12 +862,7 @@
 
         // Initialize zones
         function initZones() {
-            if (zones !== null) return;
-            zones = [
-                { id: 'z_left_paint', cx: 95, cy: 250, r: 75, label: 'L Paint' },
-                { id: 'z_right_paint', cx: 845, cy: 250, r: 75, label: 'R Paint' },
-            ];
-            saveZones();
+            // Legacy zone drawing removed. Zone classification is now handled by classifyZone().
         }
 
         // ══════════════════════════════════
@@ -961,6 +914,50 @@
             const dr = Math.hypot(cx - 886, cy - 250);
             const is3 = cx < 470 ? (dl > 237.5 || cy < 45 || cy > 455) : (dr > 237.5 || cy < 45 || cy > 455);
             return is3 ? 3 : 2;
+        }
+
+        // ══════════════════════════════════
+        // ZONE CLASSIFICATION
+        // ══════════════════════════════════
+        function classifyZone(x, y) {
+            // x, y are percentages (0-100). Convert to SVG coordinates.
+            const svgX = (x / 100) * 940;
+            const svgY = (y / 100) * 500;
+
+            const isLeftHalf = svgX < 470;
+
+            if (isLeftHalf) {
+                // Left paint: x < 192 (paint rect spans x=2 to x=192)
+                if (svgX < 192) return 'Paint';
+                // Left 3PT: beyond the arc or corner
+                const dl = Math.hypot(svgX - 54, svgY - 250);
+                if (dl > 237.5 || svgY < 45 || svgY > 455) return '3-Point';
+                // Everything else on left half
+                return 'Mid-Range';
+            } else {
+                // Right paint: x > 748 (paint rect spans x=748 to x=938)
+                if (svgX > 748) return 'Paint';
+                // Right 3PT: beyond the arc or corner
+                const dr = Math.hypot(svgX - 886, svgY - 250);
+                if (dr > 237.5 || svgY < 45 || svgY > 455) return '3-Point';
+                // Everything else on right half
+                return 'Mid-Range';
+            }
+        }
+
+        // Calculate zone stats for a shot list
+        function calcZoneStats(shotList) {
+            const zones = {
+                'Paint': { makes: 0, att: 0 },
+                'Mid-Range': { makes: 0, att: 0 },
+                '3-Point': { makes: 0, att: 0 }
+            };
+            shotList.forEach(s => {
+                const zone = classifyZone(s.x, s.y);
+                zones[zone].att++;
+                if (s.make) zones[zone].makes++;
+            });
+            return zones;
         }
 
         // ══════════════════════════════════
@@ -1157,6 +1154,24 @@
                 };
                 bodyEl.appendChild(row);
             });
+
+            // Zone breakdown section
+            const zoneStats = calcZoneStats(teamShots);
+            const zoneDiv = document.createElement('div');
+            zoneDiv.style.cssText = 'border-top:1px solid #1e3254;margin-top:8px;padding-top:8px;';
+            let hasZones = false;
+            ['Paint', 'Mid-Range', '3-Point'].forEach(zoneName => {
+                const z = zoneStats[zoneName];
+                if (z.att === 0) return;
+                hasZones = true;
+                const pct = Math.round((z.makes / z.att) * 100);
+                const pctColor = pct >= 50 ? '#22c55e' : pct >= 33 ? '#fbbf24' : '#f87171';
+                const zoneRow = document.createElement('div');
+                zoneRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:9px;';
+                zoneRow.innerHTML = `<span style="color:#4a6080;font-weight:700;">${zoneName}</span><span style="color:${pctColor};font-weight:900;">${pct}%</span><span style="color:#2a3c5a;">${z.makes}/${z.att}</span>`;
+                zoneDiv.appendChild(zoneRow);
+            });
+            if (hasZones) bodyEl.appendChild(zoneDiv);
 
             if (playerNums.length === 0) {
                 bodyEl.innerHTML = `<div style="font-size:10px;color:#2a3c5a;padding:8px 6px;font-style:italic;">No shots yet</div>`;
@@ -1374,6 +1389,34 @@
                 `;
                 section.appendChild(stats);
 
+                // Zone breakdown section
+                const zoneStats = calcZoneStats(teamShots);
+                const zoneOrder = ['Paint', 'Mid-Range', '3-Point'];
+                const zoneSection = document.createElement('div');
+                zoneSection.style.cssText = 'margin-bottom:12px;';
+                zoneSection.innerHTML = '<div style="font-size:11px;font-weight:900;color:#94a3b8;text-transform:uppercase;margin-bottom:8px;letter-spacing:.06em;">Zone Breakdown</div>';
+
+                const zoneGrid = document.createElement('div');
+                zoneGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px;';
+
+                zoneOrder.forEach(zoneName => {
+                    const z = zoneStats[zoneName];
+                    const pct = z.att > 0 ? Math.round((z.makes / z.att) * 100) : null;
+                    const pctColor = pct === null ? '#4a6080' : pct >= 50 ? '#22c55e' : pct >= 33 ? '#fbbf24' : '#f87171';
+
+                    const card = document.createElement('div');
+                    card.style.cssText = 'background:rgba(0,0,0,.3);padding:8px 6px;border-radius:8px;text-align:center;';
+                    card.innerHTML = `
+                        <div style="font-size:9px;color:#94a3b8;margin-bottom:4px;font-weight:700;">${zoneName}</div>
+                        <div style="font-size:16px;font-weight:900;color:${pctColor};">${pct !== null ? pct + '%' : '--'}</div>
+                        <div style="font-size:8px;color:#3a5070;margin-top:2px;">${z.makes}/${z.att}</div>
+                    `;
+                    zoneGrid.appendChild(card);
+                });
+
+                zoneSection.appendChild(zoneGrid);
+                section.appendChild(zoneSection);
+
                 // Player breakdown
                 if (teamShots.length > 0) {
                     const playersDiv = document.createElement('div');
@@ -1417,7 +1460,12 @@
           style="width:34px;height:34px;border:none;border-radius:8px;cursor:pointer;padding:2px;background:#111c30;flex-shrink:0;"
           title="Pick team color">
         <input type="text" id="tn_${i}" value="${team.name}" placeholder="${DEF_NAMES[i]}" class="nd-input" style="flex:1;">
-        <span style="font-size:11px;font-weight:700;color:${team.color};padding:3px 10px;border-radius:99px;border:1px solid ${team.color};flex-shrink:0;">${team.shape}</span>
+        <select id="ts_${i}" style="background:#0a1628;border:1.5px solid #2a3c5a;border-radius:8px;color:${team.color};padding:4px 8px;font-size:12px;font-weight:900;flex-shrink:0;cursor:pointer;">
+          <option value="circle"   ${team.shape==='circle'   ? 'selected' : ''}>◯ Circle</option>
+          <option value="square"   ${team.shape==='square'   ? 'selected' : ''}>▢ Square</option>
+          <option value="diamond"  ${team.shape==='diamond'  ? 'selected' : ''}>◆ Diamond</option>
+          <option value="triangle" ${team.shape==='triangle' ? 'selected' : ''}>△ Triangle</option>
+        </select>
       </div>
       <label style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#4a6080;display:block;margin-bottom:8px;">Players (Jersey # + Name)</label>
       <div id="playerEntries_${i}" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
@@ -1469,6 +1517,7 @@
             teams.forEach((team, i) => {
                 team.color = document.getElementById(`tc_${i}`).value;
                 team.name = document.getElementById(`tn_${i}`).value.trim() || DEF_NAMES[i];
+                team.shape = document.getElementById(`ts_${i}`).value;
 
                 // Read player entries from the dynamic form
                 const sec = teamSetupList.children[i];

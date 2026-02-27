@@ -882,12 +882,6 @@
             <div id="playerChips"
                 style="display:flex;flex-wrap:wrap;gap:7px;min-height:38px;margin-bottom:var(--sp-3);"></div>
 
-            <!-- Number input -->
-            <div style="position:relative;margin-bottom:var(--sp-4);">
-                <span
-                    style="position:absolute;left:14px;top:50%;transform:translateY(-50%);font-size:28px;font-weight:900;color:var(--border-medium);">#</span>
-                <input id="playerNumInput" class="big-input" type="number" inputmode="numeric" placeholder="00">
-            </div>
 
             <!-- Make / Miss / Free Throw -->
             <div class="shot-btns-row"
@@ -1003,7 +997,6 @@
         const shotModal = document.getElementById('shotModal');
         const shotBg = document.getElementById('shotBg');
         const shotClose = document.getElementById('shotClose');
-        const playerNumInput = document.getElementById('playerNumInput');
         const playerChips = document.getElementById('playerChips');
         const modalTeamSel = document.getElementById('modalTeamSel');
         const modalTeamDot = document.getElementById('modalTeamDot');
@@ -1408,16 +1401,66 @@
         }
 
         // ══════════════════════════════════
+        // QUARTER GUARD TOAST
+        // ══════════════════════════════════
+        function showQuarterToast() {
+            // Remove existing toast if any
+            const existing = document.getElementById('quarterToast');
+            if (existing) existing.remove();
+
+            const toast = document.createElement('div');
+            toast.id = 'quarterToast';
+            toast.textContent = '👆 Select a quarter first';
+            toast.style.cssText = [
+                'position:fixed',
+                'bottom:80px',
+                'left:50%',
+                'transform:translateX(-50%) translateY(12px)',
+                'background:var(--bg-elevated)',
+                'border:1px solid var(--accent)',
+                'color:var(--accent)',
+                'font-size:14px',
+                'font-weight:700',
+                'padding:10px 20px',
+                'border-radius:var(--radius-full)',
+                'z-index:90',
+                'pointer-events:none',
+                'opacity:0',
+                'transition:opacity .2s, transform .2s',
+                'white-space:nowrap',
+                'box-shadow:0 4px 20px rgba(0,0,0,.5)',
+            ].join(';');
+            document.body.appendChild(toast);
+
+            // Animate in
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    toast.style.opacity = '1';
+                    toast.style.transform = 'translateX(-50%) translateY(0)';
+                });
+            });
+
+            // Fade out after 2s
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                toast.style.transform = 'translateX(-50%) translateY(12px)';
+                setTimeout(() => toast.remove(), 250);
+            }, 2000);
+        }
+
+        // ══════════════════════════════════
         // COURT CLICK (mouse & touch)
         // ══════════════════════════════════
         function handleCourtTap(clientX, clientY) {
+            // Block tapping when viewing All periods
+            if (currentQuarter === 0) {
+                showQuarterToast();
+                return;
+            }
+
             const r = courtWrapper.getBoundingClientRect();
             let x = Math.max(.5, Math.min(99.5, ((clientX - r.left) / r.width) * 100));
             const y = Math.max(.5, Math.min(99.5, ((clientY - r.top) / r.height) * 100));
-
-            // Full-court shots allowed. Zone classification uses teamIdx, not x position.
-            const selectedTeam = teams[selTeamIdx] || teams[0];
-            const teamIdx = teams.indexOf(selectedTeam);
 
             currentTap = { x, y };
             haptic('tap');
@@ -1442,13 +1485,11 @@
         function openShot() {
             buildTeamSel();
             buildChips();
-            playerNumInput.value = lastPlayer;
             shotModal.classList.add('open');
-            setTimeout(() => playerNumInput.focus(), 320);
         }
         function closeShot() {
             shotModal.classList.remove('open');
-            setTimeout(() => { currentTap = null; playerNumInput.blur(); }, 280);
+            setTimeout(() => { currentTap = null; }, 280);
         }
         shotBg.addEventListener('click', closeShot);
         shotClose.addEventListener('click', closeShot);
@@ -1480,7 +1521,7 @@
             playerChips.innerHTML = '';
             const team = teams[selTeamIdx] || teams[0];
             if (!team.players.length) {
-                playerChips.innerHTML = '<span style="font-size:11px;color:var(--text-faint);font-style:italic;align-self:center;">Type a jersey # below, or add players in Setup</span>';
+                playerChips.innerHTML = '<span style="font-size:11px;color:var(--text-faint);font-style:italic;align-self:center;">Add players in Setup → then select one here</span>';
                 return;
             }
             team.players.forEach(p => {
@@ -1495,7 +1536,7 @@
                 btn.textContent = label;
                 btn.onclick = () => {
                     lastPlayer = pid;
-                    playerNumInput.value = pid;
+                    localStorage.setItem('nd_lastPlayer', pid);
                     buildChips();
                 };
                 playerChips.appendChild(btn);
@@ -1504,17 +1545,12 @@
 
         function recordShot(make) {
             if (!currentTap) return;
-            let pid = String(playerNumInput.value).trim();
-            if (!pid) pid = '?';
-            pid = pid.substring(0, 3);
-
-            lastPlayer = pid;
-            localStorage.setItem('nd_lastPlayer', pid);
+            let pid = lastPlayer || '?';
 
             const team = teams[selTeamIdx] || teams[0];
-            if (pid !== '?' && !team.players.some(p => normPlayer(p).num === pid)) {
-                team.players.push({ num: pid, name: '' });
-                saveTeams();
+            // Only allow players from Setup roster
+            if (!team.players.some(p => normPlayer(p).num === pid)) {
+                pid = '?';
             }
 
             shots.push({ id: Date.now(), playerId: pid, teamIdx: selTeamIdx, make, x: currentTap.x, y: currentTap.y, quarter: lastExplicitQuarter, ts: new Date().toISOString() });
@@ -1528,14 +1564,11 @@
         btnMiss.addEventListener('click', () => recordShot(false));
 
         function recordFreeThrow(make) {
-            const pid = playerChips.value || '?';
-            lastPlayer = pid;
-            localStorage.setItem('nd_lastPlayer', pid);
+            let pid = lastPlayer || '?';
 
             const team = teams[selTeamIdx] || teams[0];
-            if (pid !== '?' && !team.players.some(p => normPlayer(p).num === pid)) {
-                team.players.push({ num: pid, name: '' });
-                saveTeams();
+            if (!team.players.some(p => normPlayer(p).num === pid)) {
+                pid = '?';
             }
 
             // FT shots go at the free throw line center: home x=21%, away x=79%, y=50%
@@ -1551,7 +1584,6 @@
 
         btnFTMake.addEventListener('click', () => recordFreeThrow(true));
         btnFTMiss.addEventListener('click', () => recordFreeThrow(false));
-        playerNumInput.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); recordShot(true); } });
 
         // ══════════════════════════════════
         // SETUP MODAL

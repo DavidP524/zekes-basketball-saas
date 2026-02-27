@@ -205,18 +205,28 @@
         /* ── SPLIT STATS PANELS ── */
         .side-panel {
             width: 160px;
-            flex-shrink: 0;
+            position: absolute;
+            top: 0;
+            bottom: 0;
             background: var(--bg-surface);
-            display: flex;
+            display: none;
             flex-direction: column;
             overflow: hidden;
+            z-index: 20;
+            box-shadow: 4px 0 20px rgba(0,0,0,.4);
+        }
+
+        .side-panel.open {
+            display: flex;
         }
 
         #statsLeft {
+            left: 0;
             border-right: 1px solid var(--border-subtle);
         }
 
         #statsRight {
+            right: 0;
             border-left: 1px solid var(--border-subtle);
         }
 
@@ -263,7 +273,6 @@
 
         @media (max-width: 640px) {
             .side-panel {
-                display: none;
                 position: fixed;
                 top: 88px;
                 bottom: 0;
@@ -275,17 +284,11 @@
             #statsLeft {
                 left: 0;
                 border-radius: 0 var(--radius-lg) var(--radius-lg) 0;
-                border-right: 1px solid var(--border-subtle);
             }
 
             #statsRight {
                 right: 0;
                 border-radius: var(--radius-lg) 0 0 var(--radius-lg);
-                border-left: 1px solid var(--border-subtle);
-            }
-
-            .side-panel.open {
-                display: flex;
             }
 
             /* Mobile button optimizations for easier tapping */
@@ -649,7 +652,7 @@
     </div>
 
     <!-- ══ BODY ══ -->
-    <div style="flex:1;display:flex;overflow:hidden;">
+    <div style="flex:1;display:flex;overflow:hidden;position:relative;">
 
         <!-- ══ LEFT STATS PANEL ══ -->
         <div id="statsLeft" class="side-panel">
@@ -1792,7 +1795,7 @@
         // ══════════════════════════════════
         // STATS PANEL TOGGLE
         // ══════════════════════════════════
-        let panelsVisible = true;
+        let panelsVisible = false;
 
         document.getElementById('btnPanelToggle').addEventListener('click', () => {
             panelsVisible = !panelsVisible;
@@ -1800,15 +1803,15 @@
             const right = document.getElementById('statsRight');
             const btn = document.getElementById('btnPanelToggle');
             if (panelsVisible) {
-                left.style.display = '';
-                right.style.display = '';
-                btn.style.opacity = '.7';
-                btn.style.color = '';
-            } else {
-                left.style.display = 'none';
-                right.style.display = 'none';
+                left.classList.add('open');
+                right.classList.add('open');
                 btn.style.opacity = '1';
                 btn.style.color = 'var(--color-fg-pct)';
+            } else {
+                left.classList.remove('open');
+                right.classList.remove('open');
+                btn.style.opacity = '.7';
+                btn.style.color = '';
             }
             syncCanvas();
         });

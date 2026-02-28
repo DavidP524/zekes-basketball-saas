@@ -398,7 +398,7 @@
             .side-panel {
                 position: fixed !important;
                 width: 130px !important;
-                top: 60px !important;
+                top: 70px !important;
                 bottom: 0 !important;
                 z-index: 40 !important;
             }
@@ -1086,8 +1086,12 @@
                 </svg>
                 Lineup submitted! You can now start the game.
             </div>
+            <button id="btnPgBackToSetup" class="nd-btn"
+                style="width:100%;padding:var(--sp-3);font-size:14px;font-weight:700;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);margin-top:var(--sp-2);">
+                ← Back to Setup
+            </button>
             <button id="btnPgSubmitLineup" class="nd-btn"
-                style="width:100%;padding:var(--sp-4);font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;background:var(--accent);color:var(--accent-on);border-radius:var(--radius-lg);margin-top:var(--sp-3);">
+                style="width:100%;padding:var(--sp-4);font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;background:var(--accent);color:var(--accent-on);border-radius:var(--radius-lg);margin-top:var(--sp-2);">
                 Submit Lineup &amp; Go to Start →
             </button>
         </div>
@@ -1100,13 +1104,17 @@
             <div id="pgGameSummary"
                 style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);padding:var(--sp-3);margin-bottom:var(--sp-4);text-align:left;">
             </div>
+            <button id="btnPgBackToLineup" class="nd-btn"
+                style="width:100%;padding:var(--sp-3);font-size:14px;font-weight:700;background:var(--bg-elevated);color:var(--text-secondary);border:1px solid var(--border-subtle);border-radius:var(--radius-lg);margin-bottom:var(--sp-2);">
+                ← Back to Lineup
+            </button>
             <button id="btnStartGame" class="nd-btn">🏁 Start Game</button>
         </div>
     </div>
 
     <!-- ══ HEADER ══ -->
     <header
-        style="background:var(--bg-base);border-bottom:1px solid var(--border-subtle);padding:7px var(--sp-3);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;z-index:30;position:relative;gap:var(--sp-2);">
+        style="background:var(--bg-base);border-bottom:1px solid var(--border-subtle);padding:7px var(--sp-3);display:flex;justify-content:space-between;align-items:center;flex-shrink:0;z-index:50;position:relative;gap:var(--sp-2);">
         <!-- Left: Logo -->
         <div style="display:flex;align-items:center;gap:var(--sp-2);min-width:0;">
             <h1
@@ -1211,7 +1219,7 @@
 
     <!-- ══ QUARTER BAR ══ -->
     <div id="quarterBar"
-        style="background:var(--bg-sunken);border-bottom:1px solid var(--border-subtle);padding:var(--sp-1) var(--sp-3);display:flex;align-items:center;gap:var(--sp-2);flex-shrink:0;z-index:28;overflow-x:auto;">
+        style="background:var(--bg-sunken);border-bottom:1px solid var(--border-subtle);padding:var(--sp-1) var(--sp-3);display:flex;align-items:center;gap:var(--sp-2);flex-shrink:0;z-index:45;position:relative;overflow-x:auto;">
         <span
             style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.1em;color:var(--text-faint);flex-shrink:0;">Period</span>
         <button class="q-chip sel" data-q="1">Q1</button>
@@ -1768,6 +1776,8 @@
         document.getElementById('btnPgSaveSetup').onclick = () => {
             if (savePgSetup()) showPgStep(1);
         };
+        document.getElementById('btnPgBackToSetup').onclick = () => { showPgStep(0); };
+        document.getElementById('btnPgBackToLineup').onclick = () => { showPgStep(1); };
         document.getElementById('btnPgSubmitLineup').onclick = () => {
             const MIN_STARTERS = 5;
             const errorBanner = document.getElementById('pgLineupError');
@@ -3161,8 +3171,12 @@
             // If still on court, add elapsed time so far — only once game clock has started
             if (onCourt[teamIdx] && onCourt[teamIdx].has(pid) && lastIn && clockEvents.length > 0) {
                 const now = Date.now();
-                const raw = now - lastIn.ts;
-                const dur = Math.max(0, raw - pausedDuring(lastIn.ts, now));
+                // Clamp effectiveIn to the first clock start so dead time between
+                // "Start Game" click and actual clock start doesn't inflate minutes
+                const firstClockStart = clockEvents.find(e => e.type === 'start');
+                const effectiveIn = firstClockStart ? Math.max(lastIn.ts, firstClockStart.ts) : lastIn.ts;
+                const raw = now - effectiveIn;
+                const dur = Math.max(0, raw - pausedDuring(effectiveIn, now));
                 total += dur;
                 const q = lastIn.quarter || 1;
                 if (q >= 1 && q <= 4) byQuarter[q] += dur;

@@ -87,6 +87,8 @@
             padding: var(--sp-2);
             position: relative;
             overflow: hidden;
+            min-height: 0;
+            /* critical: allows flex child to shrink below content size */
         }
 
         .court-wrapper {
@@ -95,6 +97,8 @@
             max-width: 860px;
             aspect-ratio: 940 / 500;
             max-height: 100%;
+            flex-shrink: 1;
+            min-height: 0;
         }
 
         .court-wrapper.edit-mode {
@@ -2815,11 +2819,16 @@
             localStorage.setItem('nd_clockEvents', JSON.stringify([]));
             playerFilter.clear();
             lastPlayer = null;
+            lineupSubmitted = false;
             updateCourtLabels();
             updateClockDisplay();
             renderAll();
             haptic('miss');
             closeClearModal();
+            // Re-show pregame flow
+            document.getElementById('preGameScreen').classList.remove('hidden');
+            showPgStep(0);
+            buildPgSetupUI();
         };
 
         // ══════════════════════════════════

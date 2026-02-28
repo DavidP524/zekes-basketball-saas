@@ -1629,6 +1629,16 @@
                     if (dupeNums.size > 0) {
                         hasDupes = true;
                         showToast(`${team.name}: Duplicate player #${[...dupeNums].join(', #')} — fix before continuing`);
+                        let firstDupe = null;
+                        entries.forEach(row => {
+                            const inp = row.querySelector('.pe-num');
+                            if (dupeNums.has(inp.value.trim())) {
+                                inp.style.borderColor = 'var(--color-miss)';
+                                inp.style.boxShadow = '0 0 0 2px rgba(248,113,113,.3)';
+                                if (!firstDupe) firstDupe = inp;
+                            }
+                        });
+                        if (firstDupe) firstDupe.scrollIntoView({ behavior: 'smooth', block: 'center' });
                         return;
                     }
                     team.players = entries.map(row => {
@@ -2038,8 +2048,8 @@
         }
         window.addEventListener('resize', positionMarkersLayer);
         window.addEventListener('orientationchange', () => {
-            // Small delay lets the browser finish the layout recalc
-            setTimeout(positionMarkersLayer, 120);
+            // Longer delay lets the browser fully settle the layout after rotation
+            setTimeout(() => { positionMarkersLayer(); syncCanvas(); }, 300);
         });
 
         function renderShots() {
@@ -2374,6 +2384,7 @@
         // Touch support for mobile
         courtWrapper.addEventListener('touchstart', e => {
             if (e.target.closest('.sm')) return;
+            e.preventDefault(); // prevent scroll jitter shifting coordinates
             const touch = e.touches[0];
             handleCourtTap(touch.clientX, touch.clientY);
         }, { passive: false });
@@ -3147,8 +3158,8 @@
                 }
             });
 
-            // If still on court, add elapsed time so far
-            if (onCourt[teamIdx] && onCourt[teamIdx].has(pid) && lastIn) {
+            // If still on court, add elapsed time so far — only once game clock has started
+            if (onCourt[teamIdx] && onCourt[teamIdx].has(pid) && lastIn && clockEvents.length > 0) {
                 const now = Date.now();
                 const raw = now - lastIn.ts;
                 const dur = Math.max(0, raw - pausedDuring(lastIn.ts, now));

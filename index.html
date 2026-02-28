@@ -596,6 +596,55 @@
             color: var(--color-danger);
         }
 
+        .clear-opt-btn {
+            background: var(--bg-elevated);
+            border: 1px solid rgba(255,255,255,.1);
+            color: var(--text-primary);
+            border-radius: 8px;
+            padding: var(--sp-3) var(--sp-2);
+            font: 600 14px/1 'Inter', sans-serif;
+            cursor: pointer;
+            text-align: center;
+            transition: background .15s;
+        }
+        .clear-opt-btn:active { background: var(--bg-sunken); }
+        .clear-opt-game { background: rgba(251,191,36,.1); border-color: rgba(251,191,36,.3); color: var(--color-fg-pct); }
+        .clear-opt-all  { background: rgba(248,113,113,.12); border-color: rgba(248,113,113,.35); color: var(--color-miss); }
+        .clear-opt-cancel { background: var(--bg-surface); color: var(--text-secondary); }
+
+        .lineup-player-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: var(--sp-2) var(--sp-3);
+            border-radius: 8px;
+            margin-bottom: var(--sp-2);
+            border: 1.5px solid var(--border-subtle);
+            background: var(--bg-elevated);
+            cursor: pointer;
+            transition: border-color .15s, background .15s;
+            user-select: none;
+        }
+        .lineup-player-row.on-court {
+            border-color: var(--color-make);
+            background: rgba(52,211,153,.08);
+        }
+        .lineup-player-row .lineup-badge {
+            font-size: 10px;
+            font-weight: 700;
+            padding: 2px 7px;
+            border-radius: 10px;
+            text-transform: uppercase;
+        }
+        .lineup-player-row.on-court .lineup-badge {
+            background: rgba(52,211,153,.2);
+            color: var(--color-make);
+        }
+        .lineup-player-row:not(.on-court) .lineup-badge {
+            background: var(--bg-sunken);
+            color: var(--text-faint);
+        }
+
         .menu-btn--accent {
             color: var(--accent);
             font-weight: 900;
@@ -734,6 +783,22 @@
                     </svg>
                     Heatmap
                 </button>
+                <button id="btnLineupMenu" class="menu-btn" title="Manage lineup &amp; track minutes">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <circle cx="12" cy="7" r="4"/>
+                        <path d="M5.5 21a8.38 8.38 0 0 1 13 0"/>
+                        <line x1="19" y1="11" x2="19" y2="17"/>
+                        <line x1="22" y1="14" x2="16" y2="14"/>
+                    </svg>
+                    Lineup
+                </button>
+                <button id="btnEditModeMenu" class="menu-btn" title="Edit shots — tap a shot to delete">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>
+                        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                    </svg>
+                    Edit Shots
+                </button>
                 <button id="btnClearMenu" class="menu-btn menu-btn--danger" title="Clear all shots">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round">
@@ -799,6 +864,12 @@
             <div class="sp-footer" id="spLeftFooter"></div>
         </div>
 
+        <!-- Edit Mode Banner -->
+        <div id="editModeBanner" style="display:none;background:rgba(248,113,113,.18);border-bottom:2px solid var(--color-miss);padding:6px var(--sp-3);text-align:center;font-size:12px;font-weight:700;color:var(--color-miss);flex-shrink:0;z-index:29;">
+            ✏ Edit Mode — Tap a shot dot to select it
+            <button id="btnExitEdit" style="margin-left:var(--sp-3);background:rgba(248,113,113,.25);border:1px solid var(--color-miss);color:var(--color-miss);border-radius:4px;padding:2px 8px;font:600 11px 'Inter',sans-serif;cursor:pointer;">Exit Edit Mode</button>
+        </div>
+
         <!-- Court -->
         <div class="court-container" id="courtContainer">
             <div class="court-wrapper" id="courtWrapper">
@@ -859,6 +930,13 @@
             <div class="sp-body" id="spRightBody"></div>
             <div class="sp-footer" id="spRightFooter"></div>
         </div>
+    </div>
+
+    <!-- ══ EDIT CONFIRM BAR ══ -->
+    <div id="editConfirmBar" style="display:none;position:fixed;bottom:0;left:0;right:0;z-index:60;background:var(--bg-elevated);border-top:2px solid var(--color-miss);padding:var(--sp-3) var(--sp-4);align-items:center;gap:var(--sp-3);">
+        <div id="editShotInfo" style="flex:1;font-size:12px;color:var(--text-secondary);line-height:1.4;"></div>
+        <button id="editDeleteBtn" style="background:var(--color-miss);color:#fff;border:none;border-radius:6px;padding:var(--sp-2) var(--sp-3);font:700 13px 'Inter',sans-serif;cursor:pointer;flex-shrink:0;">Delete</button>
+        <button id="editCancelBtn" style="background:var(--bg-surface);color:var(--text-secondary);border:1px solid var(--border-subtle);border-radius:6px;padding:var(--sp-2) var(--sp-3);font:600 13px 'Inter',sans-serif;cursor:pointer;flex-shrink:0;">Cancel</button>
     </div>
 
     <!-- ══ SHOT MODAL ══ -->
@@ -932,6 +1010,50 @@
         </div>
     </div>
 
+    <!-- ══ LINEUP MODAL ══ -->
+    <div class="overlay" id="lineupModal">
+        <div class="ov-bg" id="lineupBg"></div>
+        <div class="drawer drawer-scroll" id="lineupDrawer" style="max-height:90dvh;overflow-y:auto;">
+            <div class="pill"></div>
+            <div class="modal-header" style="margin-bottom:12px;">
+                <h2 class="modal-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink:0;">
+                        <circle cx="12" cy="7" r="4"/>
+                        <path d="M5.5 21a8.38 8.38 0 0 1 13 0"/>
+                        <line x1="19" y1="11" x2="19" y2="17"/>
+                        <line x1="22" y1="14" x2="16" y2="14"/>
+                    </svg>
+                    Lineup &amp; Minutes
+                </h2>
+                <button id="lineupClose" class="modal-close">✕</button>
+            </div>
+            <div style="font-size:11px;color:var(--text-faint);margin-bottom:12px;">Tap a player to sub them in or out. Minutes are tracked automatically.</div>
+            <div id="lineupTeamTabs" style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);"></div>
+            <div id="lineupContent"></div>
+        </div>
+    </div>
+
+    <!-- ══ CLEAR MODAL ══ -->
+    <div class="overlay" id="clearModal">
+        <div class="ov-bg" id="clearBg"></div>
+        <div class="drawer" id="clearDrawer" style="padding:var(--sp-4);">
+            <div class="pill"></div>
+            <div class="modal-header" style="margin-bottom:18px;">
+                <h2 class="modal-title">What would you like to clear?</h2>
+                <button id="clearModalClose" class="modal-close">✕</button>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-2);margin-bottom:var(--sp-2);">
+                <button class="clear-opt-btn" id="clearQ1">Clear Quarter 1</button>
+                <button class="clear-opt-btn" id="clearQ2">Clear Quarter 2</button>
+                <button class="clear-opt-btn" id="clearQ3">Clear Quarter 3</button>
+                <button class="clear-opt-btn" id="clearQ4">Clear Quarter 4</button>
+            </div>
+            <button class="clear-opt-btn clear-opt-game" id="clearGame" style="width:100%;margin-bottom:var(--sp-2);">Clear Game Data <span style="font-size:11px;opacity:.7;">(keeps team setup)</span></button>
+            <button class="clear-opt-btn clear-opt-all" id="clearAll" style="width:100%;margin-bottom:var(--sp-3);">Clear Everything <span style="font-size:11px;opacity:.7;">(full reset)</span></button>
+            <button class="clear-opt-btn clear-opt-cancel" id="clearCancel" style="width:100%;">Cancel</button>
+        </div>
+    </div>
+
     <!-- ══ STATS MODAL ══ -->
     <div class="overlay" id="statsModal">
         <div class="ov-bg" id="statsBg"></div>
@@ -984,6 +1106,21 @@
         // Quarter & Zone state
         let currentQuarter = 1; // 1-4; 0 = "All"
         let lastExplicitQuarter = 1; // tracks last non-zero quarter for recording
+
+        // Minutes / lineup tracking
+        let subEvents = JSON.parse(localStorage.getItem('nd_subEvents')) || [];
+        let onCourt = [new Set(), new Set()]; // onCourt[teamIdx] = Set of playerIds currently on court
+        // Rebuild onCourt state from subEvents on load
+        (function restoreOnCourt() {
+            const latestState = {}; // key: `teamIdx:pid` → last event type
+            subEvents.forEach(e => { latestState[`${e.teamIdx}:${e.playerId}`] = e.type; });
+            Object.entries(latestState).forEach(([key, type]) => {
+                if (type === 'in') {
+                    const [ti, pid] = key.split(':');
+                    onCourt[+ti].add(pid);
+                }
+            });
+        })();
 
         // ══════════════════════════════════
         // ELEMENT REFS
@@ -1228,9 +1365,16 @@
                 if (!heatOn) {
                     const el = document.createElement('div');
                     const shape = team.shape || 'circle';
-                    el.className = `sm sm-${shape} ${shot.make ? 'sm-make' : 'sm-miss'}${visible ? '' : ' dimmed'}`;
+                    const isSelected = editMode && shot.id === selectedShotId;
+                    el.className = `sm sm-${shape} ${shot.make ? 'sm-make' : 'sm-miss'}${visible ? '' : ' dimmed'}${isSelected ? ' sm-selected' : ''}`;
                     el.style.left = `${shot.x}%`;
                     el.style.top = `${shot.y}%`;
+                    if (isSelected) {
+                        el.style.width = '20px';
+                        el.style.height = '20px';
+                        el.style.zIndex = '10';
+                        el.style.boxShadow = '0 0 0 3px #fff, 0 0 0 5px var(--color-miss)';
+                    }
 
                     if (shape === 'diamond') {
                         el.innerHTML = `<span class="lbl">${shot.playerId}</span>`;
@@ -1452,15 +1596,26 @@
         // COURT CLICK (mouse & touch)
         // ══════════════════════════════════
         function handleCourtTap(clientX, clientY) {
+            const r = courtWrapper.getBoundingClientRect();
+            let x = Math.max(.5, Math.min(99.5, ((clientX - r.left) / r.width) * 100));
+            const y = Math.max(.5, Math.min(99.5, ((clientY - r.top) / r.height) * 100));
+
+            // Edit mode: select nearest shot instead of recording
+            if (editMode) {
+                const nearest = findNearestShot(x, y);
+                if (nearest) {
+                    selectShotForEdit(nearest);
+                } else {
+                    deselectShot();
+                }
+                return;
+            }
+
             // Block tapping when viewing All periods
             if (currentQuarter === 0) {
                 showQuarterToast();
                 return;
             }
-
-            const r = courtWrapper.getBoundingClientRect();
-            let x = Math.max(.5, Math.min(99.5, ((clientX - r.left) / r.width) * 100));
-            const y = Math.max(.5, Math.min(99.5, ((clientY - r.top) / r.height) * 100));
 
             currentTap = { x, y };
             haptic('tap');
@@ -1555,6 +1710,7 @@
 
             shots.push({ id: Date.now(), playerId: pid, teamIdx: selTeamIdx, make, x: currentTap.x, y: currentTap.y, quarter: lastExplicitQuarter, ts: new Date().toISOString() });
             saveShots();
+            if (heatOn) heatOn = false;
             haptic(make ? 'make' : 'miss');
             closeShot();
             renderAll();
@@ -1577,6 +1733,7 @@
 
             shots.push({ id: Date.now(), playerId: pid, teamIdx: selTeamIdx, make, x: ftX, y: ftY, ft: true, quarter: lastExplicitQuarter, ts: new Date().toISOString() });
             saveShots();
+            if (heatOn) heatOn = false;
             haptic(make ? 'make' : 'miss');
             closeShot();
             renderAll();
@@ -1670,6 +1827,8 @@
                 [...statsContent.querySelectorAll('.player-detail-stats')].forEach(el => el.remove());
 
                 // Overall stats card
+                const pMins = calcPlayerMinutes(teamIdx, pid);
+                const pZS2 = calcZoneStats(filteredShots);
                 const overallDiv = document.createElement('div');
                 overallDiv.className = 'player-detail-stats';
                 overallDiv.style.cssText = 'background:rgba(0,0,0,.3);padding:var(--sp-3);border-radius:var(--radius-sm);margin-bottom:var(--sp-3);display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--sp-3);text-align:center;';
@@ -1685,6 +1844,18 @@
                     <div>
                         <div class="stat-card__label">Points</div>
                         <div class="stat-card__value" style="font-size:18px;color:var(--color-ft-make);">${filteredPts}</div>
+                    </div>
+                    <div>
+                        <div class="stat-card__label">Minutes</div>
+                        <div class="stat-card__value" style="font-size:16px;color:var(--accent);">${pMins.total > 0 ? formatMinSec(pMins.total) : '--'}</div>
+                    </div>
+                    <div>
+                        <div class="stat-card__label">Paint Shots</div>
+                        <div class="stat-card__value" style="font-size:16px;color:var(--text-secondary);">${pZS2['Paint'].att}</div>
+                    </div>
+                    <div>
+                        <div class="stat-card__label">3PT Shots</div>
+                        <div class="stat-card__value" style="font-size:16px;color:var(--text-secondary);">${pZS2['3-Point'].att}</div>
                     </div>
                 `;
                 statsContent.appendChild(overallDiv);
@@ -1768,6 +1939,7 @@
                 section.appendChild(header);
 
                 // Stats grid
+                const teamZS = calcZoneStats(teamShots);
                 const stats = document.createElement('div');
                 stats.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);margin-bottom:var(--sp-3);';
                 stats.innerHTML = `
@@ -1784,14 +1956,26 @@
                         <div class="stat-card__value" style="font-size:18px;color:var(--color-ft-make);">${teamMakes}</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-card__label" style="font-size:11px;">Attempts</div>
+                        <div class="stat-card__label" style="font-size:11px;">Total Shots</div>
                         <div class="stat-card__value" style="font-size:18px;color:var(--text-secondary);">${teamAtt}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card__label" style="font-size:11px;">Paint Shots</div>
+                        <div class="stat-card__value" style="font-size:18px;color:var(--text-secondary);">${teamZS['Paint'].att}</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-card__label" style="font-size:11px;">3-Point Shots</div>
+                        <div class="stat-card__value" style="font-size:18px;color:var(--text-secondary);">${teamZS['3-Point'].att}</div>
+                    </div>
+                    <div class="stat-card" style="grid-column:1/-1;">
+                        <div class="stat-card__label" style="font-size:11px;">Free Throws</div>
+                        <div class="stat-card__value" style="font-size:18px;color:var(--text-secondary);">${teamZS['Free Throw'].makes}/${teamZS['Free Throw'].att}</div>
                     </div>
                 `;
                 section.appendChild(stats);
 
                 // Zone breakdown section
-                const zoneStats = calcZoneStats(teamShots);
+                const zoneStats = teamZS;
                 const zoneOrder = ['Paint', 'Mid-Range', '3-Point', 'Free Throw'];
                 const zoneSection = document.createElement('div');
                 zoneSection.style.cssText = 'margin-bottom:var(--sp-3);';
@@ -1836,15 +2020,24 @@
                         const playerPts = playerShots.filter(s => s.make).reduce((sum, s) => sum + shotPoints(s), 0);
                         const player = team.players.find(p => normPlayer(p).num === pid);
                         const playerName = player ? normPlayer(player).name || `#${pid}` : `#${pid}`;
+                        const pZS = calcZoneStats(playerShots);
 
                         const row = document.createElement('div');
-                        row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:var(--sp-2) 0;border-bottom:1px solid var(--bg-elevated);font-size:12px;cursor:pointer;transition:background .15s;';
+                        row.style.cssText = 'padding:var(--sp-2) 0;border-bottom:1px solid var(--bg-elevated);font-size:12px;cursor:pointer;transition:background .15s;';
                         row.innerHTML = `
-                            <span style="color:var(--text-secondary);">${playerName}</span>
-                            <span style="color:var(--color-fg-pct);font-weight:700;">${playerPct}%</span>
-                            <span style="color:var(--text-faint);">${playerMakes}/${playerAtt}</span>
-                            <span style="color:var(--color-make);font-weight:900;">${playerPts}pts</span>
-                            <span style="color:var(--text-faint);font-size:10px;">›</span>
+                            <div style="display:flex;justify-content:space-between;align-items:center;">
+                                <span style="color:var(--text-secondary);font-weight:700;">${playerName}</span>
+                                <span style="color:var(--color-fg-pct);font-weight:700;">${playerPct}%</span>
+                                <span style="color:var(--text-faint);">${playerMakes}/${playerAtt}</span>
+                                <span style="color:var(--color-make);font-weight:900;">${playerPts}pts</span>
+                                <span style="color:var(--text-faint);font-size:10px;">›</span>
+                            </div>
+                            <div style="display:flex;gap:var(--sp-2);margin-top:4px;flex-wrap:wrap;">
+                                <span style="font-size:10px;color:var(--text-faint);">Paint: <b style="color:var(--text-secondary);">${pZS['Paint'].att}</b></span>
+                                <span style="font-size:10px;color:var(--text-faint);">3PT: <b style="color:var(--text-secondary);">${pZS['3-Point'].att}</b></span>
+                                <span style="font-size:10px;color:var(--text-faint);">FT: <b style="color:var(--text-secondary);">${pZS['Free Throw'].makes}/${pZS['Free Throw'].att}</b></span>
+                                <span style="font-size:10px;color:var(--text-faint);">Mid: <b style="color:var(--text-secondary);">${pZS['Mid-Range'].att}</b></span>
+                            </div>
                         `;
                         row.addEventListener('mouseenter', () => row.style.background = 'rgba(255,255,255,.05)');
                         row.addEventListener('mouseleave', () => row.style.background = '');
@@ -1931,7 +2124,8 @@
                             const name = row.querySelector('.pe-name').value.trim();
                             return num ? { num, name } : null;
                         })
-                        .filter(Boolean);
+                        .filter(Boolean)
+                        .sort((a, b) => Number(a.num) - Number(b.num));
                 }
             });
             saveTeams();
@@ -1964,19 +2158,58 @@
         if (btnShowAllOld) btnShowAllOld.onclick = doShowAll;
         document.getElementById('btnShowAllMenu').onclick = doShowAll;
 
+        const clearModal = document.getElementById('clearModal');
+        const closeClearModal = () => clearModal.classList.remove('open');
+
         const doClear = () => {
-            if (confirm('Clear all shot data?')) {
-                shots = [];
-                saveShots();
-                playerFilter.clear();
-                renderAll();
-                haptic('miss');
-            }
-            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
+            clearModal.classList.add('open');
+            document.getElementById('menuDropdown').style.display = 'none';
         };
         const btnClearOld = document.getElementById('btnClear');
         if (btnClearOld) btnClearOld.onclick = doClear;
         document.getElementById('btnClearMenu').onclick = doClear;
+
+        document.getElementById('clearBg').onclick = closeClearModal;
+        document.getElementById('clearModalClose').onclick = closeClearModal;
+        document.getElementById('clearCancel').onclick = closeClearModal;
+
+        const clearAndRender = () => { saveShots(); playerFilter.clear(); renderAll(); haptic('miss'); closeClearModal(); };
+
+        document.getElementById('clearQ1').onclick = () => { shots = shots.filter(s => s.quarter !== 1); clearAndRender(); };
+        document.getElementById('clearQ2').onclick = () => { shots = shots.filter(s => s.quarter !== 2); clearAndRender(); };
+        document.getElementById('clearQ3').onclick = () => { shots = shots.filter(s => s.quarter !== 3); clearAndRender(); };
+        document.getElementById('clearQ4').onclick = () => { shots = shots.filter(s => s.quarter !== 4); clearAndRender(); };
+
+        document.getElementById('clearGame').onclick = () => {
+            shots = [];
+            subEvents = [];
+            onCourt = [new Set(), new Set()];
+            saveShots();
+            localStorage.setItem('nd_subEvents', JSON.stringify([]));
+            playerFilter.clear();
+            renderAll();
+            haptic('miss');
+            closeClearModal();
+        };
+
+        document.getElementById('clearAll').onclick = () => {
+            shots = [];
+            subEvents = [];
+            onCourt = [new Set(), new Set()];
+            teams = [
+                { name: 'Home', color: '#3b82f6', shape: 'circle', players: [], active: true },
+                { name: 'Away', color: '#f97316', shape: 'square', players: [], active: true }
+            ];
+            saveShots();
+            saveTeams();
+            localStorage.setItem('nd_subEvents', JSON.stringify([]));
+            playerFilter.clear();
+            lastPlayer = null;
+            updateCourtLabels();
+            renderAll();
+            haptic('miss');
+            closeClearModal();
+        };
 
         // ══════════════════════════════════
         // UNDO LAST SHOT
@@ -1993,6 +2226,226 @@
         if (btnUndoOld) btnUndoOld.onclick = doUndo;
         const btnUndoMenu = document.getElementById('btnUndoMenu');
         if (btnUndoMenu) btnUndoMenu.onclick = doUndo;
+
+        // ══════════════════════════════════
+        // EDIT MODE
+        // ══════════════════════════════════
+        let editMode = false;
+        let selectedShotId = null;
+        const editModeBanner = document.getElementById('editModeBanner');
+        const editConfirmBar = document.getElementById('editConfirmBar');
+        const editShotInfo = document.getElementById('editShotInfo');
+        const editDeleteBtn = document.getElementById('editDeleteBtn');
+        const editCancelBtn = document.getElementById('editCancelBtn');
+
+        function enterEditMode() {
+            editMode = true;
+            selectedShotId = null;
+            editModeBanner.style.display = 'block';
+            editConfirmBar.style.display = 'none';
+            document.getElementById('menuDropdown').style.display = 'none';
+            renderShots();
+        }
+        function exitEditMode() {
+            editMode = false;
+            selectedShotId = null;
+            editModeBanner.style.display = 'none';
+            editConfirmBar.style.display = 'none';
+            renderShots();
+        }
+        document.getElementById('btnEditModeMenu').onclick = enterEditMode;
+        document.getElementById('btnExitEdit').onclick = exitEditMode;
+
+        function deselectShot() {
+            selectedShotId = null;
+            editConfirmBar.style.display = 'none';
+            renderShots();
+        }
+
+        function selectShotForEdit(shot) {
+            selectedShotId = shot.id;
+            const team = teams[shot.teamIdx] || { name: 'Team' };
+            const zone = classifyZone(shot.x, shot.y);
+            const result = shot.ft ? (shot.make ? 'FT Made' : 'FT Missed') : (shot.make ? 'Make' : 'Miss');
+            editShotInfo.innerHTML = `
+                <span style="color:${team.color};font-weight:700;">${team.name}</span>
+                &nbsp;·&nbsp; #${shot.playerId}
+                &nbsp;·&nbsp; Q${shot.quarter}
+                &nbsp;·&nbsp; <span style="color:${shot.make ? 'var(--color-make)' : 'var(--color-miss)'};">${result}</span>
+                &nbsp;·&nbsp; ${zone}
+            `;
+            editConfirmBar.style.display = 'flex';
+            renderShots();
+        }
+
+        editDeleteBtn.onclick = () => {
+            if (selectedShotId == null) return;
+            shots = shots.filter(s => s.id !== selectedShotId);
+            saveShots();
+            haptic('miss');
+            deselectShot();
+            renderAll();
+        };
+        editCancelBtn.onclick = deselectShot;
+
+        function findNearestShot(tapPctX, tapPctY) {
+            const wrapRect = courtWrapper.getBoundingClientRect();
+            const THRESHOLD_PX = 28;
+            let best = null, bestDist = Infinity;
+            const visibleShots = shots.filter(s => {
+                if (playerFilter.size > 0 && !playerFilter.has(`${s.teamIdx}:${s.playerId}`)) return false;
+                if (currentQuarter !== 0 && s.quarter !== currentQuarter) return false;
+                return true;
+            });
+            visibleShots.forEach(s => {
+                const dotPx = (s.x / 100) * wrapRect.width;
+                const dotPy = (s.y / 100) * wrapRect.height;
+                const tapPx = (tapPctX / 100) * wrapRect.width;
+                const tapPy = (tapPctY / 100) * wrapRect.height;
+                const d = Math.hypot(dotPx - tapPx, dotPy - tapPy);
+                if (d < THRESHOLD_PX && d < bestDist) { bestDist = d; best = s; }
+            });
+            return best;
+        }
+
+        // ══════════════════════════════════
+        // LINEUP / MINUTES TRACKER
+        // ══════════════════════════════════
+        const lineupModal = document.getElementById('lineupModal');
+        let lineupTeamIdx = 0;
+        let lineupTimer = null;
+
+        function saveSubEvents() {
+            localStorage.setItem('nd_subEvents', JSON.stringify(subEvents));
+        }
+
+        function formatMinSec(ms) {
+            const totalSec = Math.floor(ms / 1000);
+            const m = Math.floor(totalSec / 60);
+            const s = totalSec % 60;
+            return `${m}:${s.toString().padStart(2, '0')}`;
+        }
+
+        function calcPlayerMinutes(teamIdx, pid) {
+            const events = subEvents.filter(e => e.teamIdx === teamIdx && e.playerId === pid);
+            let total = 0;
+            const byQuarter = { 1: 0, 2: 0, 3: 0, 4: 0 };
+            let lastIn = null;
+
+            events.forEach(e => {
+                if (e.type === 'in') {
+                    lastIn = e;
+                } else if (e.type === 'out' && lastIn) {
+                    const dur = e.ts - lastIn.ts;
+                    total += dur;
+                    const q = lastIn.quarter || 1;
+                    if (q >= 1 && q <= 4) byQuarter[q] += dur;
+                    lastIn = null;
+                }
+            });
+
+            // If still on court, add elapsed time so far
+            if (onCourt[teamIdx] && onCourt[teamIdx].has(pid) && lastIn) {
+                const dur = Date.now() - lastIn.ts;
+                total += dur;
+                const q = lastIn.quarter || 1;
+                if (q >= 1 && q <= 4) byQuarter[q] += dur;
+            }
+
+            return { total, byQuarter };
+        }
+
+        function buildLineupUI() {
+            const teamTabsEl = document.getElementById('lineupTeamTabs');
+            const contentEl = document.getElementById('lineupContent');
+
+            // Build team tabs
+            teamTabsEl.innerHTML = '';
+            teams.forEach((team, i) => {
+                const tab = document.createElement('button');
+                tab.style.cssText = `padding:var(--sp-1) var(--sp-3);border-radius:20px;border:1.5px solid ${i === lineupTeamIdx ? team.color : 'var(--border-subtle)'};background:${i === lineupTeamIdx ? `rgba(${hexToRgb(team.color)},0.15)` : 'var(--bg-elevated)'};color:${i === lineupTeamIdx ? team.color : 'var(--text-secondary)'};font:700 12px 'Inter',sans-serif;cursor:pointer;`;
+                tab.textContent = team.name;
+                tab.onclick = () => { lineupTeamIdx = i; buildLineupUI(); };
+                teamTabsEl.appendChild(tab);
+            });
+
+            // Build player list
+            contentEl.innerHTML = '';
+            const team = teams[lineupTeamIdx];
+            if (!team || !team.players.length) {
+                contentEl.innerHTML = '<div style="color:var(--text-faint);font-size:13px;text-align:center;padding:var(--sp-4);">No players set up for this team.<br>Add players in Setup.</div>';
+                return;
+            }
+
+            team.players.forEach(p => {
+                const player = normPlayer(p);
+                const isOn = onCourt[lineupTeamIdx] && onCourt[lineupTeamIdx].has(player.num);
+                const mins = calcPlayerMinutes(lineupTeamIdx, player.num);
+                const totalStr = formatMinSec(mins.total);
+                const qBreak = [1,2,3,4].map(q => mins.byQuarter[q] > 0 ? `Q${q}:${formatMinSec(mins.byQuarter[q])}` : null).filter(Boolean).join(' · ');
+
+                const row = document.createElement('div');
+                row.className = `lineup-player-row${isOn ? ' on-court' : ''}`;
+                row.innerHTML = `
+                    <div style="display:flex;align-items:center;gap:var(--sp-2);">
+                        <span style="font-size:16px;font-weight:900;color:${team.color};width:32px;text-align:center;">#${player.num}</span>
+                        <div>
+                            <div style="font-size:13px;font-weight:700;color:var(--text-primary);">${player.name || `Player ${player.num}`}</div>
+                            <div style="font-size:10px;color:var(--text-faint);margin-top:1px;">${mins.total > 0 ? totalStr + ' total' + (qBreak ? ' · ' + qBreak : '') : 'No time logged'}</div>
+                        </div>
+                    </div>
+                    <span class="lineup-badge">${isOn ? 'ON' : 'OUT'}</span>
+                `;
+
+                row.onclick = () => {
+                    const nowOn = onCourt[lineupTeamIdx] && onCourt[lineupTeamIdx].has(player.num);
+                    if (nowOn) {
+                        onCourt[lineupTeamIdx].delete(player.num);
+                        subEvents.push({ playerId: player.num, teamIdx: lineupTeamIdx, type: 'out', ts: Date.now(), quarter: lastExplicitQuarter });
+                    } else {
+                        if (!onCourt[lineupTeamIdx]) onCourt[lineupTeamIdx] = new Set();
+                        onCourt[lineupTeamIdx].add(player.num);
+                        subEvents.push({ playerId: player.num, teamIdx: lineupTeamIdx, type: 'in', ts: Date.now(), quarter: lastExplicitQuarter });
+                    }
+                    saveSubEvents();
+                    buildLineupUI();
+                    haptic('tap');
+                };
+                contentEl.appendChild(row);
+            });
+
+            // On-court count
+            const onCount = onCourt[lineupTeamIdx] ? onCourt[lineupTeamIdx].size : 0;
+            const countEl = document.createElement('div');
+            countEl.style.cssText = 'text-align:center;font-size:11px;color:var(--text-faint);margin-top:var(--sp-2);';
+            countEl.textContent = `${onCount} player${onCount !== 1 ? 's' : ''} on court`;
+            contentEl.appendChild(countEl);
+        }
+
+        function hexToRgb(hex) {
+            const r = parseInt(hex.slice(1,3), 16);
+            const g = parseInt(hex.slice(3,5), 16);
+            const b = parseInt(hex.slice(5,7), 16);
+            return `${r},${g},${b}`;
+        }
+
+        document.getElementById('btnLineupMenu').onclick = () => {
+            lineupTeamIdx = 0;
+            buildLineupUI();
+            lineupModal.classList.add('open');
+            document.getElementById('menuDropdown').style.display = 'none';
+            // Start live refresh timer
+            if (lineupTimer) clearInterval(lineupTimer);
+            lineupTimer = setInterval(buildLineupUI, 10000); // refresh every 10s
+        };
+        document.getElementById('lineupClose').onclick = () => {
+            lineupModal.classList.remove('open');
+            if (lineupTimer) { clearInterval(lineupTimer); lineupTimer = null; }
+        };
+        document.getElementById('lineupBg').onclick = () => {
+            lineupModal.classList.remove('open');
+            if (lineupTimer) { clearInterval(lineupTimer); lineupTimer = null; }
+        };
 
         // ══════════════════════════════════
         // STATS PANEL TOGGLE

@@ -151,86 +151,49 @@
             display: none;
         }
 
-        #markersLayer {
-            position: absolute;
-            pointer-events: none;
-            z-index: 10;
-        }
 
-        /* ── SHOT MARKERS ── */
+        /* ── SHOT MARKERS (SVG elements inside courtSvg) ── */
         .sm {
-            position: absolute;
-            width: 10px;
-            height: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 4px;
-            font-weight: 900;
-            transform: translate(-50%, -50%);
-            color: white;
-            border: 1.5px solid;
-            box-shadow: 0 1px 4px rgba(0, 0, 0, .7);
             cursor: default;
-            transition: transform .12s, opacity .2s;
-            user-select: none;
-            border-radius: 50%;
+            transition: opacity .2s;
         }
-
-        .sm:hover {
-            transform: translate(-50%, -50%) scale(1.35);
-            z-index: 20;
-        }
-
         .sm.dimmed {
             opacity: .18;
         }
-
-        .sm-circle,
-        .sm-square,
-        .sm-diamond {
-            border-radius: 50%;
+        .sm:hover .sm-shape {
+            transform: scale(1.35);
         }
-
-        .sm-diamond .lbl {
-            display: block;
+        .sm .sm-shape {
+            transform-box: fill-box;
+            transform-origin: center;
+            transition: transform .12s;
         }
-
-        .sm-triangle {
-            width: 0;
-            height: 0;
-            background: transparent !important;
-            box-shadow: none;
-            border-left: 14px solid transparent;
-            border-right: 14px solid transparent;
-            border-bottom-width: 26px;
-            border-bottom-style: solid;
-            border-top: none;
-            border-radius: 0;
-            display: flex;
-            align-items: flex-end;
-            padding-bottom: 2px;
+        .sm-make .sm-shape {
+            fill: var(--color-make-bg);
+            stroke: var(--color-make);
+            stroke-width: 1.5;
+            stroke-dasharray: none;
         }
-
-        /* make = solid green, miss = dashed red */
-        .sm-make {
-            border-color: var(--color-make);
-            border-style: solid;
-            background: var(--color-make-bg);
+        .sm-miss .sm-shape {
+            fill: var(--color-miss-bg);
+            stroke: var(--color-miss);
+            stroke-width: 1.5;
+            stroke-dasharray: 3 2;
         }
-
-        .sm-miss {
-            border-color: var(--color-miss);
-            border-style: dashed;
-            background: var(--color-miss-bg);
+        .sm-selected .sm-shape {
+            stroke: var(--color-miss);
+            stroke-width: 2.5;
+            filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 5px var(--color-miss));
         }
-
-        .sm-triangle.sm-make {
-            border-bottom-color: var(--color-make);
-        }
-
-        .sm-triangle.sm-miss {
-            border-bottom-color: var(--color-miss);
+        .sm text {
+            font-size: 5px;
+            font-weight: 900;
+            font-family: 'Inter', sans-serif;
+            fill: white;
+            text-anchor: middle;
+            dominant-baseline: central;
+            pointer-events: none;
+            user-select: none;
         }
 
         /* ── SPLIT STATS PANELS ── */
@@ -1271,7 +1234,6 @@
 
             <div class="court-wrapper" id="courtWrapper">
                 <canvas id="heatCanvas"></canvas>
-                <div id="markersLayer"></div>
                 <svg id="courtSvg" class="court" viewBox="0 0 940 500" xmlns="http://www.w3.org/2000/svg"
                     preserveAspectRatio="xMidYMid meet">
                     <!-- Floor -->
@@ -1306,6 +1268,7 @@
                         <path d="M735,215 A55,55 0 0,0 735,285" stroke="rgba(180,210,240,.25)" stroke-dasharray="4,4" />
                     </g>
                     <!-- SVG labels removed — replaced by HTML overlays below -->
+                    <g id="shotMarkersGroup"></g>
                 </svg>
             </div>
         </div>
@@ -1534,7 +1497,6 @@
         // ══════════════════════════════════
         const courtWrapper = document.getElementById('courtWrapper');
         const courtContainer = document.getElementById('courtContainer');
-        const markersLayer = document.getElementById('markersLayer');
         const heatCanvas = document.getElementById('heatCanvas');
         const labelLeft = document.getElementById('labelLeft');
         const labelRight = document.getElementById('labelRight');
@@ -1833,14 +1795,11 @@
         // ══════════════════════════════════
         function init() {
             syncCanvas();
-            syncMarkersLayer();
             syncPanelTop();
             window.addEventListener('resize', syncCanvas);
-            window.addEventListener('resize', syncMarkersLayer);
             window.addEventListener('resize', syncPanelTop);
             new ResizeObserver(() => {
                 syncCanvas();
-                syncMarkersLayer();
                 syncPanelTop();
                 renderShots();
             }).observe(courtWrapper);
@@ -1861,17 +1820,6 @@
             heatCanvas.height = sRect.height || courtWrapper.clientHeight;
         }
 
-        function syncMarkersLayer() {
-            // Pin #markersLayer to exactly the SVG's rendered area inside the wrapper.
-            // preserveAspectRatio="xMidYMid meet" can inset the SVG's content from the
-            // wrapper edge — we measure both rects and offset accordingly.
-            const wRect = courtWrapper.getBoundingClientRect();
-            const sRect = courtSvg.getBoundingClientRect();
-            markersLayer.style.left   = (sRect.left - wRect.left) + 'px';
-            markersLayer.style.top    = (sRect.top  - wRect.top)  + 'px';
-            markersLayer.style.width  = sRect.width  + 'px';
-            markersLayer.style.height = sRect.height + 'px';
-        }
 
         function syncPanelTop() {
             // Pin panels directly below the quarter bar (zero gap, any orientation)
@@ -2072,50 +2020,77 @@
         // SHOT MARKERS
         const courtSvg = document.getElementById('courtSvg');
 
+        const SVG_NS = 'http://www.w3.org/2000/svg';
+        const shotMarkersGroup = document.getElementById('shotMarkersGroup');
+
         function renderShots() {
-            syncMarkersLayer();
-            markersLayer.innerHTML = '';
+            shotMarkersGroup.innerHTML = '';
             const heatPts = [];
 
             shots.forEach(shot => {
                 const team = teams[shot.teamIdx];
                 if (!team) return;
 
-                // If shot is in the wrong quarter, skip it entirely (don't render at all)
                 if (!shotInQuarter(shot)) return;
 
                 const visible = shotVisible(shot);
 
-                if (!heatOn) {
-                    const el = document.createElement('div');
-                    const shape = team.shape || 'circle';
-                    const isSelected = editMode && shot.id === selectedShotId;
-                    el.className = `sm sm-${shape} ${shot.make ? 'sm-make' : 'sm-miss'}${visible ? '' : ' dimmed'}${isSelected ? ' sm-selected' : ''}`;
-                    el.style.left = `${shot.x}%`;
-                    el.style.top = `${shot.y}%`;
-                    if (isSelected) {
-                        el.style.width = '20px';
-                        el.style.height = '20px';
-                        el.style.zIndex = '10';
-                        el.style.boxShadow = '0 0 0 3px #fff, 0 0 0 5px var(--color-miss)';
-                    }
-
-                    if (shape === 'diamond') {
-                        el.innerHTML = `<span class="lbl">${shot.playerId}</span>`;
-                    } else if (shape === 'triangle') {
-                        // triangle: jersey # in title only (no room inside)
-                        el.title = `#${shot.playerId} ${shot.make ? 'MAKE' : 'MISS'}`;
-                    } else {
-                        el.textContent = shot.playerId;
-                        el.title = `#${shot.playerId} ${shot.make ? 'MAKE' : 'MISS'} (${team.name})`;
-                    }
-                    markersLayer.appendChild(el);
-                }
-
+                // Heatmap data — uses viewBox-space percentages mapped to canvas pixels
                 if (heatOn && visible) {
                     const px = (shot.x / 100) * heatCanvas.width;
                     const py = (shot.y / 100) * heatCanvas.height;
                     heatPts.push([px, py, shot.make ? 3 : 1]);
+                }
+
+                if (!heatOn) {
+                    const shape = team.shape || 'circle';
+                    const isSelected = editMode && shot.id === selectedShotId;
+                    // Raw viewBox coordinates — x% of 940, y% of 500
+                    const svgX = (shot.x / 100) * 940;
+                    const svgY = (shot.y / 100) * 500;
+                    const R = isSelected ? 8 : 5.5; // radius in viewBox units
+
+                    const g = document.createElementNS(SVG_NS, 'g');
+                    g.setAttribute('class', `sm sm-${shape} ${shot.make ? 'sm-make' : 'sm-miss'}${visible ? '' : ' dimmed'}${isSelected ? ' sm-selected' : ''}`);
+                    g.setAttribute('transform', `translate(${svgX},${svgY})`);
+
+                    // Shape element
+                    let shapeEl;
+                    if (shape === 'triangle') {
+                        // Upward-pointing triangle centered on origin
+                        const h = R * 2;
+                        shapeEl = document.createElementNS(SVG_NS, 'polygon');
+                        shapeEl.setAttribute('points', `0,${-h} ${h * 0.866},${h * 0.5} ${-h * 0.866},${h * 0.5}`);
+                    } else {
+                        // circle covers circle, square, diamond (diamond rotated via transform)
+                        shapeEl = document.createElementNS(SVG_NS, 'circle');
+                        shapeEl.setAttribute('cx', '0');
+                        shapeEl.setAttribute('cy', '0');
+                        shapeEl.setAttribute('r', String(R));
+                        if (shape === 'diamond') {
+                            shapeEl.setAttribute('transform', 'rotate(45)');
+                            shapeEl = (() => {
+                                const rect = document.createElementNS(SVG_NS, 'rect');
+                                rect.setAttribute('x', String(-R));
+                                rect.setAttribute('y', String(-R));
+                                rect.setAttribute('width', String(R * 2));
+                                rect.setAttribute('height', String(R * 2));
+                                rect.setAttribute('transform', 'rotate(45)');
+                                return rect;
+                            })();
+                        }
+                    }
+                    shapeEl.setAttribute('class', 'sm-shape');
+                    g.appendChild(shapeEl);
+
+                    // Jersey number label (skip for triangle — too small)
+                    if (shape !== 'triangle') {
+                        const txt = document.createElementNS(SVG_NS, 'text');
+                        txt.textContent = shot.playerId;
+                        g.appendChild(txt);
+                    }
+
+                    shotMarkersGroup.appendChild(g);
                 }
             });
 

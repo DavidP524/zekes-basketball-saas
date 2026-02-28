@@ -96,6 +96,25 @@
             aspect-ratio: 940 / 500;
             max-height: 100%;
         }
+        .court-wrapper.edit-mode {
+            border: 2px solid var(--color-miss);
+            border-radius: 4px;
+        }
+        .court-wrapper.edit-mode::after {
+            content: 'EDIT';
+            position: absolute;
+            top: 4px;
+            left: 50%;
+            transform: translateX(-50%);
+            font: 700 9px 'Inter', sans-serif;
+            color: var(--color-miss);
+            letter-spacing: .1em;
+            background: rgba(15, 25, 35, .85);
+            padding: 1px 8px;
+            border-radius: 3px;
+            z-index: 20;
+            pointer-events: none;
+        }
 
         svg.court {
             width: 100%;
@@ -870,12 +889,6 @@
             <div class="sp-footer" id="spLeftFooter"></div>
         </div>
 
-        <!-- Edit Mode Banner -->
-        <div id="editModeBanner" style="display:none;background:rgba(248,113,113,.07);border-bottom:1px solid rgba(248,113,113,.3);padding:3px var(--sp-3);display:none;justify-content:space-between;align-items:center;font-size:11px;font-weight:600;color:var(--color-miss);flex-shrink:0;z-index:29;">
-            <span>✏ Edit Mode — tap a shot to select it</span>
-            <button id="btnExitEdit" style="background:transparent;border:1px solid rgba(248,113,113,.4);color:var(--color-miss);border-radius:4px;padding:1px 7px;font:600 10px 'Inter',sans-serif;cursor:pointer;">Exit</button>
-        </div>
-
         <!-- Court -->
         <div class="court-container" id="courtContainer">
             <div class="court-wrapper" id="courtWrapper">
@@ -950,42 +963,40 @@
         <div class="ov-bg" id="shotBg"></div>
         <div class="drawer" id="shotDrawer">
             <div class="pill"></div>
-            <div class="modal-header">
-                <h3 class="modal-title" style="font-size:16px;">
-                    <span id="modalTeamDot"
-                        style="width:10px;height:10px;border-radius:50%;display:inline-block;"></span>
-                    Log Shot
-                </h3>
-                <button id="shotClose" class="modal-close">✕</button>
+
+            <!-- Step 1: Select Player -->
+            <div id="shotStep1">
+                <div class="modal-header">
+                    <h3 class="modal-title" style="font-size:16px;">
+                        <span id="modalTeamDot"
+                            style="width:10px;height:10px;border-radius:50%;display:inline-block;"></span>
+                        Select Player
+                    </h3>
+                    <button id="shotClose" class="modal-close">✕</button>
+                </div>
+                <div id="modalTeamSel" style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);flex-wrap:wrap;"></div>
+                <div id="playerChips" style="display:flex;flex-wrap:wrap;gap:7px;min-height:38px;"></div>
             </div>
 
-            <!-- Team selector -->
-            <div id="modalTeamSel" style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);flex-wrap:wrap;"></div>
-
-            <!-- Player chips -->
-            <div id="playerChips"
-                style="display:flex;flex-wrap:wrap;gap:7px;min-height:38px;margin-bottom:var(--sp-3);"></div>
-
-
-            <!-- Make / Miss / Free Throw -->
-            <div class="shot-btns-row"
-                style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);margin-bottom:var(--sp-3);">
-                <button id="btnMake" class="nd-btn"
-                    style="padding:28px 10px;font-size:22px;font-weight:900;letter-spacing:.05em;color:var(--color-make);border:2px solid var(--color-make);background:var(--color-make-bg);">MAKE
-                    ✓</button>
-                <button id="btnMiss" class="nd-btn"
-                    style="padding:28px 10px;font-size:22px;font-weight:900;letter-spacing:.05em;color:var(--color-miss);border:2px solid var(--color-miss);background:var(--color-miss-bg);">MISS
-                    ✗</button>
-            </div>
-            <div class="shot-btns-row" style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);">
-                <button id="btnFTMake" class="nd-btn"
-                    style="padding:28px 10px;font-size:22px;font-weight:900;letter-spacing:.05em;color:var(--color-ft-make);border:2px solid var(--color-ft-make);background:rgba(96,165,250,.07);">FT
-                    MAKE
-                    ✓</button>
-                <button id="btnFTMiss" class="nd-btn"
-                    style="padding:28px 10px;font-size:22px;font-weight:900;letter-spacing:.05em;color:var(--color-ft-miss);border:2px solid var(--color-ft-miss);background:rgba(167,139,250,.07);">FT
-                    MISS
-                    ✗</button>
+            <!-- Step 2: Select Outcome -->
+            <div id="shotStep2" style="display:none;">
+                <div class="modal-header">
+                    <h3 class="modal-title" style="font-size:16px;display:flex;align-items:center;gap:var(--sp-2);">
+                        <button id="shotBack" style="background:none;border:none;color:var(--text-secondary);font-size:18px;cursor:pointer;padding:0 4px;">&#8592;</button>
+                        <span id="shotPlayerLabel" style="font-weight:900;"></span>
+                    </h3>
+                    <button id="shotClose2" class="modal-close">✕</button>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);margin-top:var(--sp-2);">
+                    <button id="btnMake" class="nd-btn"
+                        style="padding:28px 10px;font-size:22px;font-weight:900;letter-spacing:.05em;color:var(--color-make);border:2px solid var(--color-make);background:var(--color-make-bg);">MAKE ✓</button>
+                    <button id="btnMiss" class="nd-btn"
+                        style="padding:28px 10px;font-size:22px;font-weight:900;letter-spacing:.05em;color:var(--color-miss);border:2px solid var(--color-miss);background:var(--color-miss-bg);">MISS ✗</button>
+                    <button id="btnFTMake" class="nd-btn"
+                        style="padding:28px 10px;font-size:22px;font-weight:900;letter-spacing:.05em;color:var(--color-ft-make);border:2px solid var(--color-ft-make);background:rgba(96,165,250,.07);">FT MAKE ✓</button>
+                    <button id="btnFTMiss" class="nd-btn"
+                        style="padding:28px 10px;font-size:22px;font-weight:900;letter-spacing:.05em;color:var(--color-ft-miss);border:2px solid var(--color-ft-miss);background:rgba(167,139,250,.07);">FT MISS ✗</button>
+                </div>
             </div>
         </div>
     </div>
@@ -1151,13 +1162,19 @@
         const shotModal = document.getElementById('shotModal');
         const shotBg = document.getElementById('shotBg');
         const shotClose = document.getElementById('shotClose');
+        const shotClose2 = document.getElementById('shotClose2');
         const playerChips = document.getElementById('playerChips');
         const modalTeamSel = document.getElementById('modalTeamSel');
         const modalTeamDot = document.getElementById('modalTeamDot');
+        const shotStep1 = document.getElementById('shotStep1');
+        const shotStep2 = document.getElementById('shotStep2');
+        const shotPlayerLabel = document.getElementById('shotPlayerLabel');
+        const shotBack = document.getElementById('shotBack');
         const btnMake = document.getElementById('btnMake');
         const btnMiss = document.getElementById('btnMiss');
         const btnFTMake = document.getElementById('btnFTMake');
         const btnFTMiss = document.getElementById('btnFTMiss');
+        let selectedShotPlayer = null;
 
         const setupModal = document.getElementById('setupModal');
         const setupBg = document.getElementById('setupBg');
@@ -1555,6 +1572,15 @@
                 zoneRow.innerHTML = `<span style="color:var(--text-muted);font-weight:700;">${zoneName}</span><span style="color:${pctColor};font-weight:900;">${pct !== null ? pct + '%' : '--'}</span><span style="color:var(--border-medium);">${z.makes}/${z.att}</span>`;
                 zoneDiv.appendChild(zoneRow);
             });
+            // Total row
+            const totalMakes = Object.values(zoneStats).reduce((a, z) => a + z.makes, 0);
+            const totalAtt = Object.values(zoneStats).reduce((a, z) => a + z.att, 0);
+            const totalPct = totalAtt > 0 ? Math.round((totalMakes / totalAtt) * 100) : null;
+            const totalPctColor = totalPct === null ? 'var(--text-muted)' : totalPct >= 50 ? 'var(--color-make)' : totalPct >= 33 ? 'var(--color-fg-pct)' : 'var(--color-miss)';
+            const totalRow = document.createElement('div');
+            totalRow.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:4px 0 3px;font-size:9px;border-top:1px solid var(--border-subtle);margin-top:2px;';
+            totalRow.innerHTML = `<span style="color:var(--text-secondary);font-weight:900;">Total</span><span style="color:${totalPctColor};font-weight:900;">${totalPct !== null ? totalPct + '%' : '--'}</span><span style="color:var(--border-medium);font-weight:700;">${totalMakes}/${totalAtt}</span>`;
+            zoneDiv.appendChild(totalRow);
             bodyEl.appendChild(zoneDiv);
 
             if (playerNums.length === 0) {
@@ -1680,6 +1706,9 @@
         // SHOT MODAL
         // ══════════════════════════════════
         function openShot() {
+            selectedShotPlayer = null;
+            shotStep1.style.display = '';
+            shotStep2.style.display = 'none';
             buildTeamSel();
             buildChips();
             shotModal.classList.add('open');
@@ -1688,8 +1717,23 @@
             shotModal.classList.remove('open');
             setTimeout(() => { currentTap = null; }, 280);
         }
+        function showOutcomeStep(pid) {
+            selectedShotPlayer = pid;
+            const team = teams[selTeamIdx] || teams[0];
+            const player = team.players.map(normPlayer).find(p => p.num === pid);
+            const label = player && player.name ? `#${pid} ${player.name}` : `#${pid}`;
+            shotPlayerLabel.textContent = label;
+            shotPlayerLabel.style.color = team.color;
+            shotStep1.style.display = 'none';
+            shotStep2.style.display = '';
+        }
         shotBg.addEventListener('click', closeShot);
         shotClose.addEventListener('click', closeShot);
+        shotClose2.addEventListener('click', closeShot);
+        shotBack.addEventListener('click', () => {
+            shotStep1.style.display = '';
+            shotStep2.style.display = 'none';
+        });
 
         function buildTeamSel() {
             modalTeamSel.innerHTML = '';
@@ -1725,47 +1769,36 @@
                 const player = normPlayer(p);
                 const pid = player.num;
                 const btn = document.createElement('button');
-                btn.className = 'chip' + (pid === lastPlayer ? ' sel' : '');
+                btn.className = 'chip';
                 btn.style.borderColor = team.color;
-                btn.style.color = pid === lastPlayer ? 'var(--bg-base)' : team.color;
-                if (pid === lastPlayer) btn.style.background = team.color;
+                btn.style.color = team.color;
                 const label = player.name ? `#${pid} ${player.name}` : `#${pid}`;
                 btn.textContent = label;
                 btn.onclick = () => {
                     lastPlayer = pid;
                     localStorage.setItem('nd_lastPlayer', pid);
-                    buildChips();
+                    showOutcomeStep(pid);
                 };
                 playerChips.appendChild(btn);
             });
         }
 
-        function showSelectPlayerToast() {
-            let t = document.getElementById('selectPlayerToast');
-            if (!t) {
-                t = document.createElement('div');
-                t.id = 'selectPlayerToast';
-                t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--bg-elevated);border:1px solid var(--color-miss);color:var(--color-miss);padding:8px 16px;border-radius:8px;font:700 13px Inter,sans-serif;z-index:200;pointer-events:none;';
-                t.textContent = 'Select a player first';
-                document.body.appendChild(t);
-            }
-            t.style.opacity = '1';
-            clearTimeout(t._to);
-            t._to = setTimeout(() => { t.style.opacity = '0'; }, 1800);
-        }
 
         function recordShot(make) {
-            if (!currentTap) return;
-            let pid = lastPlayer || '';
+            if (!currentTap || !selectedShotPlayer) return;
+            shots.push({ id: Date.now(), playerId: selectedShotPlayer, teamIdx: selTeamIdx, make, x: currentTap.x, y: currentTap.y, quarter: lastExplicitQuarter, ts: new Date().toISOString() });
+            saveShots();
+            if (heatOn) heatOn = false;
+            haptic(make ? 'make' : 'miss');
+            closeShot();
+            renderAll();
+        }
 
-            const team = teams[selTeamIdx] || teams[0];
-            // Block if no valid player selected
-            if (!pid || !team.players.some(p => normPlayer(p).num === pid)) {
-                showSelectPlayerToast();
-                return;
-            }
-
-            shots.push({ id: Date.now(), playerId: pid, teamIdx: selTeamIdx, make, x: currentTap.x, y: currentTap.y, quarter: lastExplicitQuarter, ts: new Date().toISOString() });
+        function recordFreeThrow(make) {
+            if (!selectedShotPlayer) return;
+            const ftX = selTeamIdx === 0 ? 21 : 79;
+            const ftY = 50;
+            shots.push({ id: Date.now(), playerId: selectedShotPlayer, teamIdx: selTeamIdx, make, x: ftX, y: ftY, ft: true, quarter: lastExplicitQuarter, ts: new Date().toISOString() });
             saveShots();
             if (heatOn) heatOn = false;
             haptic(make ? 'make' : 'miss');
@@ -1775,28 +1808,6 @@
 
         btnMake.addEventListener('click', () => recordShot(true));
         btnMiss.addEventListener('click', () => recordShot(false));
-
-        function recordFreeThrow(make) {
-            let pid = lastPlayer || '';
-
-            const team = teams[selTeamIdx] || teams[0];
-            if (!pid || !team.players.some(p => normPlayer(p).num === pid)) {
-                showSelectPlayerToast();
-                return;
-            }
-
-            // FT shots go at the free throw line center: home x=21%, away x=79%, y=50%
-            const ftX = selTeamIdx === 0 ? 21 : 79;
-            const ftY = 50;
-
-            shots.push({ id: Date.now(), playerId: pid, teamIdx: selTeamIdx, make, x: ftX, y: ftY, ft: true, quarter: lastExplicitQuarter, ts: new Date().toISOString() });
-            saveShots();
-            if (heatOn) heatOn = false;
-            haptic(make ? 'make' : 'miss');
-            closeShot();
-            renderAll();
-        }
-
         btnFTMake.addEventListener('click', () => recordFreeThrow(true));
         btnFTMiss.addEventListener('click', () => recordFreeThrow(false));
 
@@ -2157,6 +2168,10 @@
         }
 
         document.getElementById('btnSaveSetup').onclick = () => {
+            // Reset all number input borders
+            document.querySelectorAll('.pe-num').forEach(el => el.style.borderColor = '');
+
+            let hasDupes = false;
             teams.forEach((team, i) => {
                 team.color = document.getElementById(`tc_${i}`).value;
                 team.name = document.getElementById(`tn_${i}`).value.trim() || DEF_NAMES[i];
@@ -2165,6 +2180,20 @@
                 const sec = teamSetupList.children[i];
                 if (sec) {
                     const entries = [...sec.querySelectorAll('.player-entry-row')];
+                    const nums = entries.map(row => row.querySelector('.pe-num').value.trim()).filter(Boolean);
+                    const seen = new Set();
+                    const dupeNums = new Set();
+                    nums.forEach(n => { if (seen.has(n)) dupeNums.add(n); seen.add(n); });
+
+                    if (dupeNums.size > 0) {
+                        hasDupes = true;
+                        showToast(`Duplicate #${[...dupeNums].join(', #')} on ${team.name}`);
+                        entries.forEach(row => {
+                            const inp = row.querySelector('.pe-num');
+                            if (dupeNums.has(inp.value.trim())) inp.style.borderColor = 'var(--color-miss)';
+                        });
+                    }
+
                     team.players = entries
                         .map(row => {
                             const num = row.querySelector('.pe-num').value.trim();
@@ -2175,6 +2204,9 @@
                         .sort((a, b) => Number(a.num) - Number(b.num));
                 }
             });
+
+            if (hasDupes) return;
+
             // Save quarter duration
             const qInput = document.getElementById('quarterMinsInput');
             if (qInput) {
@@ -2295,7 +2327,6 @@
         // ══════════════════════════════════
         let editMode = false;
         let selectedShotId = null;
-        const editModeBanner = document.getElementById('editModeBanner');
         const editConfirmBar = document.getElementById('editConfirmBar');
         const editShotInfo = document.getElementById('editShotInfo');
         const editDeleteBtn = document.getElementById('editDeleteBtn');
@@ -2304,7 +2335,14 @@
         function enterEditMode() {
             editMode = true;
             selectedShotId = null;
-            editModeBanner.style.display = 'flex';
+            courtWrapper.classList.add('edit-mode');
+            // Add exit button overlay on court
+            const exitBtn = document.createElement('button');
+            exitBtn.id = 'editExitBtn';
+            exitBtn.style.cssText = 'position:absolute;top:4px;right:8px;z-index:20;background:rgba(248,113,113,.15);border:1px solid var(--color-miss);color:var(--color-miss);border-radius:4px;padding:2px 8px;font:600 9px Inter,sans-serif;cursor:pointer;';
+            exitBtn.textContent = 'Exit';
+            exitBtn.onclick = exitEditMode;
+            courtWrapper.appendChild(exitBtn);
             editConfirmBar.style.display = 'none';
             document.getElementById('menuDropdown').style.display = 'none';
             renderShots();
@@ -2312,12 +2350,13 @@
         function exitEditMode() {
             editMode = false;
             selectedShotId = null;
-            editModeBanner.style.display = 'none';
+            courtWrapper.classList.remove('edit-mode');
+            const exitBtn = document.getElementById('editExitBtn');
+            if (exitBtn) exitBtn.remove();
             editConfirmBar.style.display = 'none';
             renderShots();
         }
         document.getElementById('btnEditModeMenu').onclick = enterEditMode;
-        document.getElementById('btnExitEdit').onclick = exitEditMode;
 
         function deselectShot() {
             selectedShotId = null;
@@ -2572,6 +2611,11 @@
         }
 
         document.getElementById('btnLineupMenu').onclick = () => {
+            if (clockEvents.length === 0) {
+                showToast('Start the game clock first');
+                document.getElementById('menuDropdown').style.display = 'none';
+                return;
+            }
             lineupTeamIdx = 0;
             buildLineupUI();
             lineupModal.classList.add('open');

@@ -561,10 +561,15 @@
         }
 
         .side-panel .player-row {
-            grid-template-columns: 26px 1fr 26px 26px 38px;
-            padding: var(--sp-1) var(--sp-2);
-            gap: 3px;
-            font-size: 11px;
+            grid-template-columns: 22px 1fr 22px 22px 32px;
+            padding: var(--sp-1) 5px;
+            gap: 2px;
+            font-size: 10px;
+        }
+
+        .side-panel .sp-body {
+            padding-left: 5px;
+            padding-right: 5px;
         }
 
         .player-row {
@@ -989,13 +994,13 @@
             border-radius: var(--radius-full);
         }
 
-        /* ── TOP PERFORMERS WIDGET ── */
-        #top-performers-widget {
+        /* ── TEAM LEADERS WIDGET ── */
+        .leaders-widget {
             border-bottom: 1px solid var(--border-subtle);
             flex-shrink: 0;
         }
 
-        #top-performers-widget .tp-header {
+        .leaders-widget .tp-header {
             padding: 5px var(--sp-2) 4px;
             font-size: 8px;
             font-weight: 900;
@@ -1004,9 +1009,9 @@
             color: var(--color-fg-pct);
         }
 
-        #top-performers-widget .tp-row {
+        .leaders-widget .tp-row {
             display: grid;
-            grid-template-columns: 28px 1fr auto;
+            grid-template-columns: 22px 1fr auto;
             align-items: center;
             gap: 4px;
             padding: 3px var(--sp-2);
@@ -1014,18 +1019,18 @@
             font-size: 9px;
         }
 
-        #top-performers-widget .tp-row:first-of-type {
+        .leaders-widget .tp-row:first-of-type {
             border-top: none;
         }
 
-        #top-performers-widget .tp-badge {
+        .leaders-widget .tp-badge {
             font-size: 9px;
             font-weight: 900;
             text-align: center;
             line-height: 1;
         }
 
-        #top-performers-widget .tp-name {
+        .leaders-widget .tp-name {
             font-size: 9px;
             font-weight: 700;
             color: var(--text-secondary);
@@ -1034,7 +1039,7 @@
             text-overflow: ellipsis;
         }
 
-        #top-performers-widget .tp-stats {
+        .leaders-widget .tp-stats {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
@@ -1042,19 +1047,19 @@
             white-space: nowrap;
         }
 
-        #top-performers-widget .tp-pts {
+        .leaders-widget .tp-pts {
             font-size: 11px;
             font-weight: 900;
             font-variant-numeric: tabular-nums;
         }
 
-        #top-performers-widget .tp-pct {
+        .leaders-widget .tp-pct {
             font-size: 8px;
             font-weight: 700;
             color: var(--text-muted);
         }
 
-        #top-performers-widget .tp-empty {
+        .leaders-widget .tp-empty {
             padding: var(--sp-2) var(--sp-2) var(--sp-2);
             font-size: 9px;
             color: var(--text-faint);
@@ -1311,6 +1316,7 @@
 
         <!-- ══ LEFT STATS PANEL ══ -->
         <div id="statsLeft" class="side-panel">
+            <div id="home-leaders" class="leaders-widget"></div>
             <div class="sp-header" id="spLeftHeader"></div>
             <div class="sp-body" id="spLeftBody"></div>
             <div class="sp-footer" id="spLeftFooter"></div>
@@ -1379,7 +1385,7 @@
 
         <!-- ══ RIGHT STATS PANEL ══ -->
         <div id="statsRight" class="side-panel">
-            <div id="top-performers-widget"></div>
+            <div id="away-leaders" class="leaders-widget"></div>
             <div class="sp-header" id="spRightHeader"></div>
             <div class="sp-body" id="spRightBody"></div>
             <div class="sp-footer" id="spRightFooter"></div>
@@ -2266,56 +2272,56 @@
         // ══════════════════════════════════
         // SPLIT STATS PANELS
         // ══════════════════════════════════
-        function getTopPerformers() {
-            // Build a flat list of all players across both teams with their stats
+        function getTeamLeaders(ti) {
+            const team = teams[ti];
+            if (!team) return [];
+            const teamShots = shots.filter(s => s.teamIdx === ti && shotInQuarter(s) && shotVisible(s));
+            const playerNums = [...new Set([
+                ...team.players.map(p => normPlayer(p).num),
+                ...shots.filter(s => s.teamIdx === ti).map(s => s.playerId)
+            ])];
             const performers = [];
-            teams.forEach((team, ti) => {
-                const teamShots = shots.filter(s => s.teamIdx === ti && shotInQuarter(s) && shotVisible(s));
-                const playerNums = [...new Set([
-                    ...team.players.map(p => normPlayer(p).num),
-                    ...shots.filter(s => s.teamIdx === ti).map(s => s.playerId)
-                ])];
-                playerNums.forEach(pid => {
-                    const ps = teamShots.filter(s => s.playerId === pid);
-                    if (ps.length === 0) return;
-                    const makes = ps.filter(s => s.make).length;
-                    const att = ps.length;
-                    const pts = ps.filter(s => s.make).reduce((a, s) => a + shotPoints(s), 0);
-                    const pct = Math.round((makes / att) * 100);
-                    performers.push({ pid, ti, teamName: team.name, teamColor: team.color, pts, makes, att, pct });
-                });
+            playerNums.forEach(pid => {
+                const ps = teamShots.filter(s => s.playerId === pid);
+                if (ps.length === 0) return;
+                const makes = ps.filter(s => s.make).length;
+                const att = ps.length;
+                const pts = ps.filter(s => s.make).reduce((a, s) => a + shotPoints(s), 0);
+                const pct = Math.round((makes / att) * 100);
+                performers.push({ pid, ti, teamColor: team.color, pts, makes, att, pct });
             });
-            // Sort: primary = pts desc, secondary = pct desc
             performers.sort((a, b) => b.pts - a.pts || b.pct - a.pct);
-            return performers.slice(0, 3);
+            return performers.slice(0, 2);
         }
 
-        function renderTopPerformers() {
-            const widget = document.getElementById('top-performers-widget');
+        function renderLeadersWidget(widgetId, ti) {
+            const widget = document.getElementById(widgetId);
             if (!widget) return;
-            const top = getTopPerformers();
+            const label = ti === 0 ? 'Home Leaders' : 'Away Leaders';
+            const top = getTeamLeaders(ti);
             if (top.length === 0) {
-                widget.innerHTML = `<div class="tp-header">Game Leaders</div><div class="tp-empty">No shots yet</div>`;
+                widget.innerHTML = `<div class="tp-header">${label}</div><div class="tp-empty">No shots yet</div>`;
                 return;
             }
             const rows = top.map((p, rank) => {
-                const medal = rank === 0 ? '🥇' : rank === 1 ? '🥈' : '🥉';
+                const medal = rank === 0 ? '🥇' : '🥈';
                 const flame = p.pct >= 60 ? ' 🔥' : '';
                 return `
                     <div class="tp-row">
-                        <div class="tp-badge" style="color:${p.teamColor};">${medal}</div>
-                        <div class="tp-name" style="color:${p.teamColor};">#${p.pid} ${p.teamName}</div>
+                        <div class="tp-badge">${medal}</div>
+                        <div class="tp-name" style="color:${p.teamColor};">#${p.pid}</div>
                         <div class="tp-stats">
                             <span class="tp-pts" style="color:${p.teamColor};">${p.pts} PTS</span>
                             <span class="tp-pct">${p.pct}% FG${flame}</span>
                         </div>
                     </div>`;
             }).join('');
-            widget.innerHTML = `<div class="tp-header">Game Leaders</div>${rows}`;
+            widget.innerHTML = `<div class="tp-header">${label}</div>${rows}`;
         }
 
         function renderStats() {
-            renderTopPerformers();
+            renderLeadersWidget('home-leaders', 0);
+            renderLeadersWidget('away-leaders', 1);
             renderTeamPanel(0, 'spLeftHeader', 'spLeftBody', 'spLeftFooter');
             renderTeamPanel(1, 'spRightHeader', 'spRightBody', 'spRightFooter');
         }

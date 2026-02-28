@@ -841,6 +841,12 @@
         <button class="q-chip" data-q="3">Q3</button>
         <button class="q-chip" data-q="4">Q4</button>
         <button class="q-chip" data-q="0">All</button>
+        <button id="btnClock"
+            style="margin-left:auto;background:#1a2e1a;border:1px solid #34d399;border-radius:var(--radius-full);padding:var(--sp-1) var(--sp-3);font-size:12px;color:#34d399;cursor:pointer;font-weight:700;letter-spacing:.04em;font-family:inherit;display:flex;align-items:center;gap:5px;flex-shrink:0;"
+            title="Start/stop game clock">
+            <svg id="clockIcon" width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><polygon points="5,3 19,12 5,21"/></svg>
+            <span id="clockLabel">Start</span>
+        </button>
         <button id="btnPanelToggle"
             style="margin-left:auto;opacity:.7;background:transparent;border:1px solid var(--border-subtle);border-radius:var(--radius-full);padding:var(--sp-1) var(--sp-3);font-size:12px;color:var(--text-secondary);cursor:pointer;font-weight:700;letter-spacing:.04em;display:flex;align-items:center;gap:var(--sp-1);font-family:inherit;"
             title="Toggle stats panels">
@@ -865,9 +871,9 @@
         </div>
 
         <!-- Edit Mode Banner -->
-        <div id="editModeBanner" style="display:none;background:rgba(248,113,113,.18);border-bottom:2px solid var(--color-miss);padding:6px var(--sp-3);text-align:center;font-size:12px;font-weight:700;color:var(--color-miss);flex-shrink:0;z-index:29;">
-            ✏ Edit Mode — Tap a shot dot to select it
-            <button id="btnExitEdit" style="margin-left:var(--sp-3);background:rgba(248,113,113,.25);border:1px solid var(--color-miss);color:var(--color-miss);border-radius:4px;padding:2px 8px;font:600 11px 'Inter',sans-serif;cursor:pointer;">Exit Edit Mode</button>
+        <div id="editModeBanner" style="display:none;background:rgba(248,113,113,.07);border-bottom:1px solid rgba(248,113,113,.3);padding:3px var(--sp-3);display:none;justify-content:space-between;align-items:center;font-size:11px;font-weight:600;color:var(--color-miss);flex-shrink:0;z-index:29;">
+            <span>✏ Edit Mode — tap a shot to select it</span>
+            <button id="btnExitEdit" style="background:transparent;border:1px solid rgba(248,113,113,.4);color:var(--color-miss);border-radius:4px;padding:1px 7px;font:600 10px 'Inter',sans-serif;cursor:pointer;">Exit</button>
         </div>
 
         <!-- Court -->
@@ -1003,6 +1009,11 @@
 
             <div id="teamSetupList" style="display:flex;flex-direction:column;gap:var(--sp-3);"></div>
 
+            <div style="display:flex;align-items:center;gap:var(--sp-3);margin-top:var(--sp-4);padding:var(--sp-3);background:var(--bg-elevated);border-radius:var(--radius-sm);">
+                <label style="font-size:12px;font-weight:700;color:var(--text-secondary);flex:1;">Quarter Duration (minutes)</label>
+                <input type="number" id="quarterMinsInput" min="1" max="20" value="8" class="nd-input" style="width:60px;text-align:center;font-size:14px;font-weight:900;">
+            </div>
+
             <button id="btnSaveSetup" class="nd-btn"
                 style="width:100%;margin-top:var(--sp-5);padding:var(--sp-4);font-size:16px;font-weight:900;text-transform:uppercase;letter-spacing:.06em;background:var(--accent);color:var(--accent-on);border-radius:var(--radius-lg);">
                 Save & Start
@@ -1107,6 +1118,12 @@
         let currentQuarter = 1; // 1-4; 0 = "All"
         let lastExplicitQuarter = 1; // tracks last non-zero quarter for recording
 
+        // Game clock
+        let clockRunning = false;
+        let clockEvents = JSON.parse(localStorage.getItem('nd_clockEvents')) || []; // { type:'start'|'stop', ts }
+        let clockDisplayInterval = null;
+        let quarterMins = +(localStorage.getItem('nd_quarterMins') || 8);
+
         // Minutes / lineup tracking
         let subEvents = JSON.parse(localStorage.getItem('nd_subEvents')) || [];
         let onCourt = [new Set(), new Set()]; // onCourt[teamIdx] = Set of playerIds currently on court
@@ -1164,6 +1181,10 @@
             // Show stats toggle on mobile
             const toggleBtn = document.getElementById('btnStatsToggle');
             if (toggleBtn && window.innerWidth <= 640) toggleBtn.style.display = 'block';
+            // Force setup on first load if no players exist
+            if (teams.every(t => t.players.length === 0)) {
+                setTimeout(openSetupModal, 200);
+            }
         }
         window.addEventListener('resize', () => {
             const toggleBtn = document.getElementById('btnStatsToggle');
@@ -1189,10 +1210,25 @@
         // Wire up quarter selector
         document.querySelectorAll('.q-chip').forEach(btn => {
             btn.addEventListener('click', () => {
+                const oldQuarter = lastExplicitQuarter;
                 currentQuarter = +btn.dataset.q;
                 if (currentQuarter !== 0) lastExplicitQuarter = currentQuarter;
                 document.querySelectorAll('.q-chip').forEach(b => b.classList.remove('sel'));
                 btn.classList.add('sel');
+
+                // Auto-log quarter transition for all on-court players (only when clock is running)
+                if (currentQuarter !== 0 && currentQuarter !== oldQuarter && clockRunning) {
+                    const now = Date.now();
+                    [0, 1].forEach(ti => {
+                        if (!onCourt[ti]) return;
+                        onCourt[ti].forEach(pid => {
+                            subEvents.push({ playerId: pid, teamIdx: ti, type: 'out', ts: now, quarter: oldQuarter });
+                            subEvents.push({ playerId: pid, teamIdx: ti, type: 'in',  ts: now + 1, quarter: currentQuarter });
+                        });
+                    });
+                    saveSubEvents();
+                }
+
                 renderAll();
             });
         });
@@ -1611,6 +1647,12 @@
                 return;
             }
 
+            // Block if no players set up — force setup first
+            if (teams.every(t => t.players.length === 0)) {
+                openSetupModal();
+                return;
+            }
+
             // Block tapping when viewing All periods
             if (currentQuarter === 0) {
                 showQuarterToast();
@@ -1698,14 +1740,29 @@
             });
         }
 
+        function showSelectPlayerToast() {
+            let t = document.getElementById('selectPlayerToast');
+            if (!t) {
+                t = document.createElement('div');
+                t.id = 'selectPlayerToast';
+                t.style.cssText = 'position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--bg-elevated);border:1px solid var(--color-miss);color:var(--color-miss);padding:8px 16px;border-radius:8px;font:700 13px Inter,sans-serif;z-index:200;pointer-events:none;';
+                t.textContent = 'Select a player first';
+                document.body.appendChild(t);
+            }
+            t.style.opacity = '1';
+            clearTimeout(t._to);
+            t._to = setTimeout(() => { t.style.opacity = '0'; }, 1800);
+        }
+
         function recordShot(make) {
             if (!currentTap) return;
-            let pid = lastPlayer || '?';
+            let pid = lastPlayer || '';
 
             const team = teams[selTeamIdx] || teams[0];
-            // Only allow players from Setup roster
-            if (!team.players.some(p => normPlayer(p).num === pid)) {
-                pid = '?';
+            // Block if no valid player selected
+            if (!pid || !team.players.some(p => normPlayer(p).num === pid)) {
+                showSelectPlayerToast();
+                return;
             }
 
             shots.push({ id: Date.now(), playerId: pid, teamIdx: selTeamIdx, make, x: currentTap.x, y: currentTap.y, quarter: lastExplicitQuarter, ts: new Date().toISOString() });
@@ -1720,11 +1777,12 @@
         btnMiss.addEventListener('click', () => recordShot(false));
 
         function recordFreeThrow(make) {
-            let pid = lastPlayer || '?';
+            let pid = lastPlayer || '';
 
             const team = teams[selTeamIdx] || teams[0];
-            if (!team.players.some(p => normPlayer(p).num === pid)) {
-                pid = '?';
+            if (!pid || !team.players.some(p => normPlayer(p).num === pid)) {
+                showSelectPlayerToast();
+                return;
             }
 
             // FT shots go at the free throw line center: home x=21%, away x=79%, y=50%
@@ -1761,7 +1819,10 @@
         // ══════════════════════════════════
         // STATS MODAL
         // ══════════════════════════════════
+        let statsQuarter = 0; // 0 = All, 1-4 = specific quarter (local to stats modal)
+
         function openStatsModal() {
+            statsQuarter = 0;
             buildStatsUI();
             statsModal.classList.add('open');
             document.getElementById('menuDropdown').style.display = 'none'; // Close menu
@@ -1828,17 +1889,16 @@
 
                 // Overall stats card
                 const pMins = calcPlayerMinutes(teamIdx, pid);
-                const pZS2 = calcZoneStats(filteredShots);
                 const overallDiv = document.createElement('div');
                 overallDiv.className = 'player-detail-stats';
-                overallDiv.style.cssText = 'background:rgba(0,0,0,.3);padding:var(--sp-3);border-radius:var(--radius-sm);margin-bottom:var(--sp-3);display:grid;grid-template-columns:1fr 1fr 1fr;gap:var(--sp-3);text-align:center;';
+                overallDiv.style.cssText = 'background:rgba(0,0,0,.3);padding:var(--sp-3);border-radius:var(--radius-sm);margin-bottom:var(--sp-3);display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);text-align:center;';
                 overallDiv.innerHTML = `
                     <div>
                         <div class="stat-card__label">FG%</div>
                         <div class="stat-card__value" style="font-size:18px;color:var(--color-fg-pct);">${filteredPct}%</div>
                     </div>
                     <div>
-                        <div class="stat-card__label">Makes/Att</div>
+                        <div class="stat-card__label">Overall</div>
                         <div class="stat-card__value" style="color:var(--color-make);">${filteredMakes}/${filteredAtt}</div>
                     </div>
                     <div>
@@ -1848,14 +1908,6 @@
                     <div>
                         <div class="stat-card__label">Minutes</div>
                         <div class="stat-card__value" style="font-size:16px;color:var(--accent);">${pMins.total > 0 ? formatMinSec(pMins.total) : '--'}</div>
-                    </div>
-                    <div>
-                        <div class="stat-card__label">Paint Shots</div>
-                        <div class="stat-card__value" style="font-size:16px;color:var(--text-secondary);">${pZS2['Paint'].att}</div>
-                    </div>
-                    <div>
-                        <div class="stat-card__label">3PT Shots</div>
-                        <div class="stat-card__value" style="font-size:16px;color:var(--text-secondary);">${pZS2['3-Point'].att}</div>
                     </div>
                 `;
                 statsContent.appendChild(overallDiv);
@@ -1917,9 +1969,22 @@
 
         function buildStatsUI() {
             statsContent.innerHTML = '';
+
+            // Quarter filter tabs
+            const qFilterRow = document.createElement('div');
+            qFilterRow.style.cssText = 'display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);flex-wrap:wrap;';
+            [0, 1, 2, 3, 4].forEach(q => {
+                const btn = document.createElement('button');
+                btn.className = 'q-chip' + (statsQuarter === q ? ' sel' : '');
+                btn.textContent = q === 0 ? 'All' : `Q${q}`;
+                btn.onclick = () => { statsQuarter = q; buildStatsUI(); };
+                qFilterRow.appendChild(btn);
+            });
+            statsContent.appendChild(qFilterRow);
+
             teams.forEach((team, ti) => {
                 const teamShots = shots.filter(s => s.teamIdx === ti &&
-                    (currentQuarter === 0 || s.quarter == null || s.quarter === currentQuarter)
+                    (statsQuarter === 0 || s.quarter == null || s.quarter === statsQuarter)
                 );
                 const teamMakes = teamShots.filter(s => s.make).length;
                 const teamAtt = teamShots.length;
@@ -1952,24 +2017,12 @@
                         <div class="stat-card__value" style="font-size:18px;color:var(--color-fg-pct);">${teamPcts}</div>
                     </div>
                     <div class="stat-card">
-                        <div class="stat-card__label" style="font-size:11px;">Makes</div>
-                        <div class="stat-card__value" style="font-size:18px;color:var(--color-ft-make);">${teamMakes}</div>
+                        <div class="stat-card__label" style="font-size:11px;">Overall</div>
+                        <div class="stat-card__value" style="font-size:18px;color:var(--color-make);">${teamMakes}/${teamAtt}</div>
                     </div>
                     <div class="stat-card">
                         <div class="stat-card__label" style="font-size:11px;">Total Shots</div>
                         <div class="stat-card__value" style="font-size:18px;color:var(--text-secondary);">${teamAtt}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card__label" style="font-size:11px;">Paint Shots</div>
-                        <div class="stat-card__value" style="font-size:18px;color:var(--text-secondary);">${teamZS['Paint'].att}</div>
-                    </div>
-                    <div class="stat-card">
-                        <div class="stat-card__label" style="font-size:11px;">3-Point Shots</div>
-                        <div class="stat-card__value" style="font-size:18px;color:var(--text-secondary);">${teamZS['3-Point'].att}</div>
-                    </div>
-                    <div class="stat-card" style="grid-column:1/-1;">
-                        <div class="stat-card__label" style="font-size:11px;">Free Throws</div>
-                        <div class="stat-card__value" style="font-size:18px;color:var(--text-secondary);">${teamZS['Free Throw'].makes}/${teamZS['Free Throw'].att}</div>
                     </div>
                 `;
                 section.appendChild(stats);
@@ -2020,24 +2073,15 @@
                         const playerPts = playerShots.filter(s => s.make).reduce((sum, s) => sum + shotPoints(s), 0);
                         const player = team.players.find(p => normPlayer(p).num === pid);
                         const playerName = player ? normPlayer(player).name || `#${pid}` : `#${pid}`;
-                        const pZS = calcZoneStats(playerShots);
 
                         const row = document.createElement('div');
-                        row.style.cssText = 'padding:var(--sp-2) 0;border-bottom:1px solid var(--bg-elevated);font-size:12px;cursor:pointer;transition:background .15s;';
+                        row.style.cssText = 'display:flex;justify-content:space-between;align-items:center;padding:var(--sp-2) 0;border-bottom:1px solid var(--bg-elevated);font-size:12px;cursor:pointer;transition:background .15s;';
                         row.innerHTML = `
-                            <div style="display:flex;justify-content:space-between;align-items:center;">
-                                <span style="color:var(--text-secondary);font-weight:700;">${playerName}</span>
-                                <span style="color:var(--color-fg-pct);font-weight:700;">${playerPct}%</span>
-                                <span style="color:var(--text-faint);">${playerMakes}/${playerAtt}</span>
-                                <span style="color:var(--color-make);font-weight:900;">${playerPts}pts</span>
-                                <span style="color:var(--text-faint);font-size:10px;">›</span>
-                            </div>
-                            <div style="display:flex;gap:var(--sp-2);margin-top:4px;flex-wrap:wrap;">
-                                <span style="font-size:10px;color:var(--text-faint);">Paint: <b style="color:var(--text-secondary);">${pZS['Paint'].att}</b></span>
-                                <span style="font-size:10px;color:var(--text-faint);">3PT: <b style="color:var(--text-secondary);">${pZS['3-Point'].att}</b></span>
-                                <span style="font-size:10px;color:var(--text-faint);">FT: <b style="color:var(--text-secondary);">${pZS['Free Throw'].makes}/${pZS['Free Throw'].att}</b></span>
-                                <span style="font-size:10px;color:var(--text-faint);">Mid: <b style="color:var(--text-secondary);">${pZS['Mid-Range'].att}</b></span>
-                            </div>
+                            <span style="color:var(--text-secondary);font-weight:700;">${playerName}</span>
+                            <span style="color:var(--color-fg-pct);font-weight:700;">${playerPct}%</span>
+                            <span style="color:var(--text-faint);">${playerMakes}/${playerAtt}</span>
+                            <span style="color:var(--color-make);font-weight:900;">${playerPts}pts</span>
+                            <span style="color:var(--text-faint);font-size:10px;">›</span>
                         `;
                         row.addEventListener('mouseenter', () => row.style.background = 'rgba(255,255,255,.05)');
                         row.addEventListener('mouseleave', () => row.style.background = '');
@@ -2053,6 +2097,9 @@
 
         function buildSetupUI() {
             teamSetupList.innerHTML = '';
+            // Populate quarter duration input with saved value
+            const qInput = document.getElementById('quarterMinsInput');
+            if (qInput) qInput.value = quarterMins;
             teams.forEach((team, i) => {
                 const sec = document.createElement('div');
                 sec.className = 'section-card';
@@ -2128,6 +2175,12 @@
                         .sort((a, b) => Number(a.num) - Number(b.num));
                 }
             });
+            // Save quarter duration
+            const qInput = document.getElementById('quarterMinsInput');
+            if (qInput) {
+                quarterMins = Math.max(1, Math.min(20, +qInput.value || 8));
+                localStorage.setItem('nd_quarterMins', quarterMins);
+            }
             saveTeams();
             closeSetup();
             updateCourtLabels();
@@ -2184,9 +2237,14 @@
             shots = [];
             subEvents = [];
             onCourt = [new Set(), new Set()];
+            clockEvents = [];
+            clockRunning = false;
+            clearInterval(clockDisplayInterval); clockDisplayInterval = null;
             saveShots();
             localStorage.setItem('nd_subEvents', JSON.stringify([]));
+            localStorage.setItem('nd_clockEvents', JSON.stringify([]));
             playerFilter.clear();
+            updateClockDisplay();
             renderAll();
             haptic('miss');
             closeClearModal();
@@ -2196,6 +2254,9 @@
             shots = [];
             subEvents = [];
             onCourt = [new Set(), new Set()];
+            clockEvents = [];
+            clockRunning = false;
+            clearInterval(clockDisplayInterval); clockDisplayInterval = null;
             teams = [
                 { name: 'Home', color: '#3b82f6', shape: 'circle', players: [], active: true },
                 { name: 'Away', color: '#f97316', shape: 'square', players: [], active: true }
@@ -2203,9 +2264,11 @@
             saveShots();
             saveTeams();
             localStorage.setItem('nd_subEvents', JSON.stringify([]));
+            localStorage.setItem('nd_clockEvents', JSON.stringify([]));
             playerFilter.clear();
             lastPlayer = null;
             updateCourtLabels();
+            updateClockDisplay();
             renderAll();
             haptic('miss');
             closeClearModal();
@@ -2241,7 +2304,7 @@
         function enterEditMode() {
             editMode = true;
             selectedShotId = null;
-            editModeBanner.style.display = 'block';
+            editModeBanner.style.display = 'flex';
             editConfirmBar.style.display = 'none';
             document.getElementById('menuDropdown').style.display = 'none';
             renderShots();
@@ -2332,11 +2395,32 @@
             const byQuarter = { 1: 0, 2: 0, 3: 0, 4: 0 };
             let lastIn = null;
 
+            // Build list of pause intervals from clockEvents
+            function pausedDuring(startTs, endTs) {
+                let paused = 0;
+                let pauseStart = null;
+                clockEvents.forEach(ce => {
+                    if (ce.type === 'stop') {
+                        if (ce.ts >= startTs && ce.ts <= endTs) pauseStart = ce.ts;
+                    } else if (ce.type === 'start' && pauseStart !== null) {
+                        const pauseEnd = Math.min(ce.ts, endTs);
+                        paused += pauseEnd - pauseStart;
+                        pauseStart = null;
+                    }
+                });
+                // If still paused within the window
+                if (pauseStart !== null && pauseStart <= endTs) {
+                    paused += endTs - pauseStart;
+                }
+                return paused;
+            }
+
             events.forEach(e => {
                 if (e.type === 'in') {
                     lastIn = e;
                 } else if (e.type === 'out' && lastIn) {
-                    const dur = e.ts - lastIn.ts;
+                    const raw = e.ts - lastIn.ts;
+                    const dur = Math.max(0, raw - pausedDuring(lastIn.ts, e.ts));
                     total += dur;
                     const q = lastIn.quarter || 1;
                     if (q >= 1 && q <= 4) byQuarter[q] += dur;
@@ -2346,7 +2430,9 @@
 
             // If still on court, add elapsed time so far
             if (onCourt[teamIdx] && onCourt[teamIdx].has(pid) && lastIn) {
-                const dur = Date.now() - lastIn.ts;
+                const now = Date.now();
+                const raw = now - lastIn.ts;
+                const dur = Math.max(0, raw - pausedDuring(lastIn.ts, now));
                 total += dur;
                 const q = lastIn.quarter || 1;
                 if (q >= 1 && q <= 4) byQuarter[q] += dur;
@@ -2397,19 +2483,30 @@
                     <span class="lineup-badge">${isOn ? 'ON' : 'OUT'}</span>
                 `;
 
-                row.onclick = () => {
+                row.onclick = (e) => {
+                    e.stopPropagation();
                     const nowOn = onCourt[lineupTeamIdx] && onCourt[lineupTeamIdx].has(player.num);
                     if (nowOn) {
+                        // Sub out
                         onCourt[lineupTeamIdx].delete(player.num);
                         subEvents.push({ playerId: player.num, teamIdx: lineupTeamIdx, type: 'out', ts: Date.now(), quarter: lastExplicitQuarter });
+                        saveSubEvents();
+                        buildLineupUI();
+                        haptic('tap');
                     } else {
-                        if (!onCourt[lineupTeamIdx]) onCourt[lineupTeamIdx] = new Set();
-                        onCourt[lineupTeamIdx].add(player.num);
-                        subEvents.push({ playerId: player.num, teamIdx: lineupTeamIdx, type: 'in', ts: Date.now(), quarter: lastExplicitQuarter });
+                        const courtCount = onCourt[lineupTeamIdx] ? onCourt[lineupTeamIdx].size : 0;
+                        if (courtCount >= 5) {
+                            // Show sub-out picker inline
+                            showSubPicker(player.num, row, contentEl);
+                        } else {
+                            if (!onCourt[lineupTeamIdx]) onCourt[lineupTeamIdx] = new Set();
+                            onCourt[lineupTeamIdx].add(player.num);
+                            subEvents.push({ playerId: player.num, teamIdx: lineupTeamIdx, type: 'in', ts: Date.now(), quarter: lastExplicitQuarter });
+                            saveSubEvents();
+                            buildLineupUI();
+                            haptic('tap');
+                        }
                     }
-                    saveSubEvents();
-                    buildLineupUI();
-                    haptic('tap');
                 };
                 contentEl.appendChild(row);
             });
@@ -2420,6 +2517,51 @@
             countEl.style.cssText = 'text-align:center;font-size:11px;color:var(--text-faint);margin-top:var(--sp-2);';
             countEl.textContent = `${onCount} player${onCount !== 1 ? 's' : ''} on court`;
             contentEl.appendChild(countEl);
+        }
+
+        function showSubPicker(incomingPid, anchorRow, contentEl) {
+            // Remove any existing picker
+            const existing = contentEl.querySelector('.sub-picker');
+            if (existing) { existing.remove(); if (existing._pid === incomingPid) return; }
+
+            const team = teams[lineupTeamIdx];
+            const onList = [...(onCourt[lineupTeamIdx] || [])];
+
+            const picker = document.createElement('div');
+            picker.className = 'sub-picker';
+            picker._pid = incomingPid;
+            picker.style.cssText = 'background:var(--bg-sunken);border:1px solid rgba(248,113,113,.35);border-radius:8px;padding:var(--sp-2) var(--sp-3);margin-bottom:var(--sp-2);';
+            picker.innerHTML = '<div style="font-size:11px;font-weight:700;color:var(--color-miss);margin-bottom:var(--sp-2);">Sub out who?</div>';
+
+            onList.forEach(pid => {
+                const p = team.players.find(pl => normPlayer(pl).num === pid);
+                const label = p ? (normPlayer(p).name || `#${pid}`) : `#${pid}`;
+                const btn = document.createElement('button');
+                btn.style.cssText = 'display:block;width:100%;text-align:left;background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:var(--color-miss);border-radius:6px;padding:var(--sp-2) var(--sp-3);font:700 12px Inter,sans-serif;cursor:pointer;margin-bottom:var(--sp-1);';
+                btn.textContent = `#${pid}${label !== '#'+pid ? ' — ' + label : ''}`;
+                btn.onclick = (e) => {
+                    e.stopPropagation();
+                    const now = Date.now();
+                    // Sub out the selected player
+                    onCourt[lineupTeamIdx].delete(pid);
+                    subEvents.push({ playerId: pid, teamIdx: lineupTeamIdx, type: 'out', ts: now, quarter: lastExplicitQuarter });
+                    // Sub in the incoming player
+                    onCourt[lineupTeamIdx].add(incomingPid);
+                    subEvents.push({ playerId: incomingPid, teamIdx: lineupTeamIdx, type: 'in', ts: now, quarter: lastExplicitQuarter });
+                    saveSubEvents();
+                    buildLineupUI();
+                    haptic('tap');
+                };
+                picker.appendChild(btn);
+            });
+
+            const cancelBtn = document.createElement('button');
+            cancelBtn.style.cssText = 'display:block;width:100%;text-align:center;background:transparent;border:none;color:var(--text-faint);font:600 11px Inter,sans-serif;cursor:pointer;margin-top:var(--sp-1);';
+            cancelBtn.textContent = 'Cancel';
+            cancelBtn.onclick = (e) => { e.stopPropagation(); picker.remove(); };
+            picker.appendChild(cancelBtn);
+
+            anchorRow.insertAdjacentElement('afterend', picker);
         }
 
         function hexToRgb(hex) {
@@ -2446,6 +2588,92 @@
             lineupModal.classList.remove('open');
             if (lineupTimer) { clearInterval(lineupTimer); lineupTimer = null; }
         };
+
+        // ══════════════════════════════════
+        // GAME CLOCK
+        // ══════════════════════════════════
+        function saveClockEvents() {
+            localStorage.setItem('nd_clockEvents', JSON.stringify(clockEvents));
+        }
+
+        function calcClockElapsed() {
+            // Returns ms of actual play time (pauses excluded) since the last 'start' event
+            let elapsed = 0;
+            let lastStart = null;
+            clockEvents.forEach(e => {
+                if (e.type === 'start') {
+                    lastStart = e.ts;
+                } else if (e.type === 'stop' && lastStart !== null) {
+                    elapsed += e.ts - lastStart;
+                    lastStart = null;
+                }
+            });
+            if (clockRunning && lastStart !== null) {
+                elapsed += Date.now() - lastStart;
+            }
+            return elapsed;
+        }
+
+        function updateClockDisplay() {
+            const btn = document.getElementById('btnClock');
+            if (!btn) return;
+            const label = document.getElementById('clockLabel');
+            const icon = document.getElementById('clockIcon');
+            if (clockRunning) {
+                const elapsed = calcClockElapsed();
+                const m = Math.floor(elapsed / 60000);
+                const s = Math.floor((elapsed % 60000) / 1000);
+                label.textContent = `${m}:${s.toString().padStart(2,'0')}`;
+                btn.style.background = 'rgba(52,211,153,.15)';
+                btn.style.borderColor = '#34d399';
+                btn.style.color = '#34d399';
+                icon.innerHTML = '<rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/>'; // pause icon
+            } else {
+                const elapsed = calcClockElapsed();
+                if (elapsed > 0) {
+                    const m = Math.floor(elapsed / 60000);
+                    const s = Math.floor((elapsed % 60000) / 1000);
+                    label.textContent = `${m}:${s.toString().padStart(2,'0')} ⏸`;
+                } else {
+                    label.textContent = 'Start';
+                }
+                btn.style.background = 'rgba(248,113,113,.12)';
+                btn.style.borderColor = 'rgba(248,113,113,.5)';
+                btn.style.color = 'var(--color-miss)';
+                icon.innerHTML = '<polygon points="5,3 19,12 5,21"/>'; // play icon
+            }
+        }
+
+        document.getElementById('btnClock').onclick = () => {
+            if (clockRunning) {
+                // Stop clock
+                clockRunning = false;
+                clockEvents.push({ type: 'stop', ts: Date.now() });
+                saveClockEvents();
+                clearInterval(clockDisplayInterval);
+                clockDisplayInterval = null;
+            } else {
+                // Start clock
+                clockRunning = true;
+                clockEvents.push({ type: 'start', ts: Date.now() });
+                saveClockEvents();
+                clockDisplayInterval = setInterval(updateClockDisplay, 1000);
+            }
+            updateClockDisplay();
+        };
+
+        // Restore clock running state from persisted events
+        (function restoreClockState() {
+            if (clockEvents.length > 0) {
+                const last = clockEvents[clockEvents.length - 1];
+                if (last.type === 'start') {
+                    // Clock was running when page closed — treat as still running
+                    clockRunning = true;
+                    clockDisplayInterval = setInterval(updateClockDisplay, 1000);
+                }
+            }
+            updateClockDisplay();
+        })();
 
         // ══════════════════════════════════
         // STATS PANEL TOGGLE

@@ -1837,6 +1837,11 @@
             syncPanelTop();
             window.addEventListener('resize', syncCanvas);
             window.addEventListener('resize', syncPanelTop);
+            new ResizeObserver(() => {
+                syncCanvas();
+                syncPanelTop();
+                renderShots();
+            }).observe(courtWrapper);
             updateCourtLabels();
             initZones();
             renderAll();
@@ -2051,28 +2056,9 @@
 
         // ══════════════════════════════════
         // SHOT MARKERS
-        // ══════════════════════════════════
-        // ── SVG-PINNED MARKERS LAYER ──────────────────────────────────────
-        // Reposition #markersLayer to exactly match the SVG's rendered area
-        // within the wrapper (handles letterbox/pillarbox from aspect-ratio).
         const courtSvg = document.getElementById('courtSvg');
-        function positionMarkersLayer() {
-            // No-op: #markersLayer uses CSS `inset: 0` inside .court-wrapper,
-            // which has aspect-ratio: 940/500 — exactly matching the SVG viewBox.
-            // Shot percentages resolve against the wrapper directly, so no JS
-            // measurement is needed and there is no timing dependency on layout.
-        }
-        window.addEventListener('resize', positionMarkersLayer);
-
-        window.addEventListener('orientationchange', () => {
-            // Two timeouts: first fires after most devices settle, second catches slow ones.
-            // positionMarkersLayer is a no-op — only syncCanvas and renderShots matter.
-            setTimeout(() => { syncCanvas(); syncPanelTop(); renderShots(); }, 300);
-            setTimeout(() => { syncCanvas(); syncPanelTop(); renderShots(); }, 800);
-        });
 
         function renderShots() {
-            positionMarkersLayer();
             markersLayer.innerHTML = '';
             const heatPts = [];
 
@@ -2361,9 +2347,8 @@
         // COURT CLICK (mouse & touch)
         // ══════════════════════════════════
         function handleCourtTap(clientX, clientY) {
-            // Use the SVG's actual rendered rect so coordinates are always
-            // pinned to the court image regardless of wrapper letterboxing
-            const r = courtSvg.getBoundingClientRect();
+            // Use the wrapper rect — same coordinate space as #markersLayer (inset: 0)
+            const r = courtWrapper.getBoundingClientRect();
             let x = Math.max(.5, Math.min(99.5, ((clientX - r.left) / r.width) * 100));
             const y = Math.max(.5, Math.min(99.5, ((clientY - r.top) / r.height) * 100));
 
@@ -3100,8 +3085,8 @@
         editCancelBtn.onclick = deselectShot;
 
         function findNearestShot(tapPctX, tapPctY) {
-            // Use the SVG rect (same coordinate system as stored shots)
-            const svgRect = courtSvg.getBoundingClientRect();
+            // Use wrapper rect — same coordinate system as recording and #markersLayer
+            const svgRect = courtWrapper.getBoundingClientRect();
             const THRESHOLD_PX = 28;
             let best = null, bestDist = Infinity;
             const visibleShots = shots.filter(s => {

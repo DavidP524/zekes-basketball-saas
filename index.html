@@ -153,7 +153,6 @@
 
         #markersLayer {
             position: absolute;
-            inset: 0;
             pointer-events: none;
             z-index: 10;
         }
@@ -1834,11 +1833,14 @@
         // ══════════════════════════════════
         function init() {
             syncCanvas();
+            syncMarkersLayer();
             syncPanelTop();
             window.addEventListener('resize', syncCanvas);
+            window.addEventListener('resize', syncMarkersLayer);
             window.addEventListener('resize', syncPanelTop);
             new ResizeObserver(() => {
                 syncCanvas();
+                syncMarkersLayer();
                 syncPanelTop();
                 renderShots();
             }).observe(courtWrapper);
@@ -1857,6 +1859,18 @@
             const sRect = courtSvg.getBoundingClientRect();
             heatCanvas.width = sRect.width || courtWrapper.clientWidth;
             heatCanvas.height = sRect.height || courtWrapper.clientHeight;
+        }
+
+        function syncMarkersLayer() {
+            // Pin #markersLayer to exactly the SVG's rendered area inside the wrapper.
+            // preserveAspectRatio="xMidYMid meet" can inset the SVG's content from the
+            // wrapper edge — we measure both rects and offset accordingly.
+            const wRect = courtWrapper.getBoundingClientRect();
+            const sRect = courtSvg.getBoundingClientRect();
+            markersLayer.style.left   = (sRect.left - wRect.left) + 'px';
+            markersLayer.style.top    = (sRect.top  - wRect.top)  + 'px';
+            markersLayer.style.width  = sRect.width  + 'px';
+            markersLayer.style.height = sRect.height + 'px';
         }
 
         function syncPanelTop() {
@@ -2059,6 +2073,7 @@
         const courtSvg = document.getElementById('courtSvg');
 
         function renderShots() {
+            syncMarkersLayer();
             markersLayer.innerHTML = '';
             const heatPts = [];
 
@@ -2347,10 +2362,16 @@
         // COURT CLICK (mouse & touch)
         // ══════════════════════════════════
         function handleCourtTap(clientX, clientY) {
-            // Use the wrapper rect — same coordinate space as #markersLayer (inset: 0)
-            const r = courtWrapper.getBoundingClientRect();
-            let x = Math.max(.5, Math.min(99.5, ((clientX - r.left) / r.width) * 100));
-            const y = Math.max(.5, Math.min(99.5, ((clientY - r.top) / r.height) * 100));
+            // Convert screen tap to SVG viewBox coordinates (0-940, 0-500) via the
+            // SVG's own transform matrix. This correctly handles preserveAspectRatio
+            // letterboxing, scaling, and any centering offset inside the wrapper.
+            const pt = courtSvg.createSVGPoint();
+            pt.x = clientX;
+            pt.y = clientY;
+            const svgP = pt.matrixTransform(courtSvg.getScreenCTM().inverse());
+            // Store as percentage of viewBox dimensions so classifyZone math stays valid
+            let x = Math.max(.5, Math.min(99.5, (svgP.x / 940) * 100));
+            const y = Math.max(.5, Math.min(99.5, (svgP.y / 500) * 100));
 
             // Edit mode: select nearest shot instead of recording
             if (editMode) {
@@ -3085,8 +3106,9 @@
         editCancelBtn.onclick = deselectShot;
 
         function findNearestShot(tapPctX, tapPctY) {
-            // Use wrapper rect — same coordinate system as recording and #markersLayer
-            const svgRect = courtWrapper.getBoundingClientRect();
+            // Both tap and shot percentages are in SVG viewBox space (x%*940, y%*500).
+            // Scale by the SVG's actual rendered size to get pixel distances.
+            const sRect = courtSvg.getBoundingClientRect();
             const THRESHOLD_PX = 28;
             let best = null, bestDist = Infinity;
             const visibleShots = shots.filter(s => {
@@ -3095,10 +3117,10 @@
                 return true;
             });
             visibleShots.forEach(s => {
-                const dotPx = (s.x / 100) * svgRect.width;
-                const dotPy = (s.y / 100) * svgRect.height;
-                const tapPx = (tapPctX / 100) * svgRect.width;
-                const tapPy = (tapPctY / 100) * svgRect.height;
+                const dotPx = (s.x / 100) * sRect.width;
+                const dotPy = (s.y / 100) * sRect.height;
+                const tapPx = (tapPctX / 100) * sRect.width;
+                const tapPy = (tapPctY / 100) * sRect.height;
                 const d = Math.hypot(dotPx - tapPx, dotPy - tapPy);
                 if (d < THRESHOLD_PX && d < bestDist) { bestDist = d; best = s; }
             });

@@ -1778,7 +1778,11 @@
             if (errorBanner) errorBanner.classList.remove('visible');
             lineupSubmitted = true;
             document.getElementById('pgLineupSubmittedBadge').classList.add('visible');
-            // Record initial on-court events
+            // subEvents are recorded when Start Game is clicked, not here
+            showPgStep(2);
+        };
+        document.getElementById('btnStartGame').onclick = () => {
+            // Record initial on-court events NOW (when game actually starts)
             const now = Date.now();
             [0, 1].forEach(ti => {
                 if (onCourt[ti]) {
@@ -1788,9 +1792,6 @@
                 }
             });
             saveSubEvents();
-            showPgStep(2);
-        };
-        document.getElementById('btnStartGame').onclick = () => {
             document.getElementById('preGameScreen').classList.add('hidden');
         };
 
@@ -1825,8 +1826,10 @@
         });
 
         function syncCanvas() {
-            heatCanvas.width = courtWrapper.clientWidth;
-            heatCanvas.height = courtWrapper.clientHeight;
+            // Sync canvas to the SVG's actual rendered dimensions
+            const sRect = courtSvg.getBoundingClientRect();
+            heatCanvas.width = sRect.width || courtWrapper.clientWidth;
+            heatCanvas.height = sRect.height || courtWrapper.clientHeight;
         }
 
         function updateCourtLabels() {
@@ -2018,7 +2021,29 @@
         // ══════════════════════════════════
         // SHOT MARKERS
         // ══════════════════════════════════
+        // ── SVG-PINNED MARKERS LAYER ──────────────────────────────────────
+        // Reposition #markersLayer to exactly match the SVG's rendered area
+        // within the wrapper (handles letterbox/pillarbox from aspect-ratio).
+        const courtSvg = document.getElementById('courtSvg');
+        function positionMarkersLayer() {
+            const wRect = courtWrapper.getBoundingClientRect();
+            const sRect = courtSvg.getBoundingClientRect();
+            // Offset relative to the wrapper
+            markersLayer.style.position = 'absolute';
+            markersLayer.style.left = (sRect.left - wRect.left) + 'px';
+            markersLayer.style.top = (sRect.top - wRect.top) + 'px';
+            markersLayer.style.width = sRect.width + 'px';
+            markersLayer.style.height = sRect.height + 'px';
+            markersLayer.style.pointerEvents = 'none';
+        }
+        window.addEventListener('resize', positionMarkersLayer);
+        window.addEventListener('orientationchange', () => {
+            // Small delay lets the browser finish the layout recalc
+            setTimeout(positionMarkersLayer, 120);
+        });
+
         function renderShots() {
+            positionMarkersLayer();
             markersLayer.innerHTML = '';
             const heatPts = [];
 
@@ -2307,7 +2332,9 @@
         // COURT CLICK (mouse & touch)
         // ══════════════════════════════════
         function handleCourtTap(clientX, clientY) {
-            const r = courtWrapper.getBoundingClientRect();
+            // Use the SVG's actual rendered rect so coordinates are always
+            // pinned to the court image regardless of wrapper letterboxing
+            const r = courtSvg.getBoundingClientRect();
             let x = Math.max(.5, Math.min(99.5, ((clientX - r.left) / r.width) * 100));
             const y = Math.max(.5, Math.min(99.5, ((clientY - r.top) / r.height) * 100));
 
@@ -3043,7 +3070,8 @@
         editCancelBtn.onclick = deselectShot;
 
         function findNearestShot(tapPctX, tapPctY) {
-            const wrapRect = courtWrapper.getBoundingClientRect();
+            // Use the SVG rect (same coordinate system as stored shots)
+            const svgRect = courtSvg.getBoundingClientRect();
             const THRESHOLD_PX = 28;
             let best = null, bestDist = Infinity;
             const visibleShots = shots.filter(s => {
@@ -3052,10 +3080,10 @@
                 return true;
             });
             visibleShots.forEach(s => {
-                const dotPx = (s.x / 100) * wrapRect.width;
-                const dotPy = (s.y / 100) * wrapRect.height;
-                const tapPx = (tapPctX / 100) * wrapRect.width;
-                const tapPy = (tapPctY / 100) * wrapRect.height;
+                const dotPx = (s.x / 100) * svgRect.width;
+                const dotPy = (s.y / 100) * svgRect.height;
+                const tapPx = (tapPctX / 100) * svgRect.width;
+                const tapPy = (tapPctY / 100) * svgRect.height;
                 const d = Math.hypot(dotPx - tapPx, dotPy - tapPy);
                 if (d < THRESHOLD_PX && d < bestDist) { bestDist = d; best = s; }
             });

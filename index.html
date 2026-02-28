@@ -2057,44 +2057,18 @@
         // within the wrapper (handles letterbox/pillarbox from aspect-ratio).
         const courtSvg = document.getElementById('courtSvg');
         function positionMarkersLayer() {
-            const wRect = courtWrapper.getBoundingClientRect();
-            const sRect = courtSvg.getBoundingClientRect();
-            // Offset relative to the wrapper
-            markersLayer.style.position = 'absolute';
-            markersLayer.style.left = (sRect.left - wRect.left) + 'px';
-            markersLayer.style.top = (sRect.top - wRect.top) + 'px';
-            markersLayer.style.width = sRect.width + 'px';
-            markersLayer.style.height = sRect.height + 'px';
-            markersLayer.style.pointerEvents = 'none';
+            // No-op: #markersLayer uses CSS `inset: 0` inside .court-wrapper,
+            // which has aspect-ratio: 940/500 — exactly matching the SVG viewBox.
+            // Shot percentages resolve against the wrapper directly, so no JS
+            // measurement is needed and there is no timing dependency on layout.
         }
         window.addEventListener('resize', positionMarkersLayer);
 
-        // ResizeObserver on the SVG catches any layout change that resize events miss
-        // (e.g. mobile rotation on some browsers that don't fire resize reliably)
-        if (typeof ResizeObserver !== 'undefined') {
-            new ResizeObserver(() => {
-                positionMarkersLayer();
-                syncCanvas();
-                renderShots();
-            }).observe(courtSvg);
-        }
         window.addEventListener('orientationchange', () => {
-            // Double-RAF fires after the browser paints the new layout post-rotation
-            requestAnimationFrame(() => {
-                requestAnimationFrame(() => {
-                    positionMarkersLayer();
-                    syncCanvas();
-                    syncPanelTop();
-                    renderShots();
-                });
-            });
-            // Belt-and-suspenders: also fire after a longer delay for slow devices
-            setTimeout(() => {
-                positionMarkersLayer();
-                syncCanvas();
-                syncPanelTop();
-                renderShots();
-            }, 500);
+            // Two timeouts: first fires after most devices settle, second catches slow ones.
+            // positionMarkersLayer is a no-op — only syncCanvas and renderShots matter.
+            setTimeout(() => { syncCanvas(); syncPanelTop(); renderShots(); }, 300);
+            setTimeout(() => { syncCanvas(); syncPanelTop(); renderShots(); }, 800);
         });
 
         function renderShots() {

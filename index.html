@@ -2040,11 +2040,9 @@
 
                 const visible = shotVisible(shot);
 
-                // Heatmap data — coords in CSS pixels; ctx.scale(dpr,dpr) handles sharpness
+                // Heatmap data — raw percentages; renderHeatmap converts to CSS pixels
                 if (heatOn && visible) {
-                    const px = (shot.x / 100) * heatCanvas.clientWidth;
-                    const py = (shot.y / 100) * heatCanvas.clientHeight;
-                    heatPts.push([px, py, shot.make]);
+                    heatPts.push([shot.x, shot.y, shot.make]);
                 }
 
                 if (!heatOn) {
@@ -2121,8 +2119,8 @@
         function renderHeatmap(pts) {
             const ctx = heatCanvas.getContext('2d');
             ctx.clearRect(0, 0, heatCanvas.width, heatCanvas.height);
-            ctx.save();
             const dpr = window.devicePixelRatio || 1;
+            ctx.save();
             ctx.scale(dpr, dpr);
             // 'screen' composite: overlapping blobs of the same color accumulate into
             // bright hot spots. Makes = green channel, Misses = red channel.
@@ -2131,7 +2129,9 @@
             const r = 42 * (heatCanvas.clientWidth / 860);
 
             function drawPass(list, r0, g0, b0) {
-                list.forEach(([x, y]) => {
+                list.forEach(pt => {
+                    const x = (pt[0] / 100) * heatCanvas.clientWidth;
+                    const y = (pt[1] / 100) * heatCanvas.clientHeight;
                     const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
                     grad.addColorStop(0,    `rgba(${r0},${g0},${b0},0.50)`);
                     grad.addColorStop(0.4,  `rgba(${r0},${g0},${b0},0.20)`);
@@ -2144,9 +2144,9 @@
             }
 
             // Green pass — makes
-            drawPass(pts.filter(([,, make]) => make),  52, 211, 153);
+            drawPass(pts.filter(pt => pt[2]),  52, 211, 153);
             // Red pass — misses
-            drawPass(pts.filter(([,, make]) => !make), 248,  113, 113);
+            drawPass(pts.filter(pt => !pt[2]), 248, 113, 113);
 
             ctx.globalCompositeOperation = 'source-over';
             ctx.restore();

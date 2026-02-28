@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>1 and Done – Shot Tracker</title>
+    <title>And 1 & Done – Shot Tracker</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700;900&display=swap" rel="stylesheet">
@@ -186,13 +186,10 @@
             filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 5px var(--color-miss));
         }
         .sm text {
-            font-size: 5px;
-            font-weight: 900;
             font-family: 'Inter', sans-serif;
             fill: white;
             text-anchor: middle;
             dominant-baseline: central;
-            pointer-events: none;
             user-select: none;
         }
 
@@ -1001,7 +998,7 @@
 
     <!-- ══ PRE-GAME SCREEN ══ -->
     <div id="preGameScreen">
-        <div class="pregame-logo">AND 1 AND DONE</div>
+        <div class="pregame-logo">AND 1 &amp; DONE</div>
 
         <!-- Progress Indicator -->
         <div class="pregame-progress">
@@ -1081,7 +1078,7 @@
         <div style="display:flex;align-items:center;gap:var(--sp-2);min-width:0;">
             <h1
                 style="color:var(--accent);font-size:18px;font-weight:900;font-style:italic;letter-spacing:-.5px;margin:0;white-space:nowrap;">
-                AND 1 AND DONE</h1>
+                AND 1 &amp; DONE</h1>
         </div>
 
         <!-- Center: Score -->
@@ -2087,6 +2084,12 @@
                     if (shape !== 'triangle') {
                         const txt = document.createElementNS(SVG_NS, 'text');
                         txt.textContent = shot.playerId;
+                        txt.setAttribute('font-size', String(R * 1.2));
+                        txt.setAttribute('font-weight', '800');
+                        txt.setAttribute('stroke', 'black');
+                        txt.setAttribute('stroke-width', '1');
+                        txt.setAttribute('paint-order', 'stroke');
+                        txt.setAttribute('pointer-events', 'none');
                         g.appendChild(txt);
                     }
 

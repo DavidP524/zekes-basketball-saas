@@ -394,11 +394,75 @@
                 box-sizing: border-box;
             }
 
-            /* Side panels smaller in landscape */
+            /* Side panels: landscape mode — fixed position, correct sides */
             .side-panel {
+                position: fixed !important;
                 width: 130px !important;
-                top: 72px !important;
+                top: 60px !important;
+                bottom: 0 !important;
+                z-index: 40 !important;
             }
+
+            #statsLeft {
+                left: 0;
+                right: auto;
+                border-radius: 0 var(--radius-md) var(--radius-md) 0;
+            }
+
+            #statsRight {
+                right: 0;
+                left: auto;
+                border-radius: var(--radius-md) 0 0 var(--radius-md);
+            }
+        }
+
+        /* ── PREGAME VALIDATION ERRORS ── */
+        .pg-error-banner {
+            display: none;
+            background: rgba(248, 113, 113, .12);
+            border: 1.5px solid var(--color-miss);
+            border-radius: var(--radius-md);
+            padding: var(--sp-3);
+            margin-bottom: var(--sp-3);
+            color: var(--color-miss);
+            font-size: 13px;
+            font-weight: 700;
+            line-height: 1.5;
+        }
+
+        .pg-error-banner.visible {
+            display: block;
+        }
+
+        .pg-error-banner ul {
+            margin: var(--sp-1) 0 0 var(--sp-4);
+            padding: 0;
+        }
+
+        .pg-error-banner ul li {
+            margin-bottom: 2px;
+        }
+
+        /* Player count chip shown in lineup step */
+        .pg-starter-count {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 11px;
+            font-weight: 900;
+            padding: 3px 8px;
+            border-radius: var(--radius-full);
+            margin-left: var(--sp-2);
+        }
+
+        .pg-starter-count.ok {
+            background: rgba(52, 211, 153, .15);
+            color: var(--color-make);
+        }
+
+        .pg-starter-count.short {
+            background: rgba(248, 113, 113, .12);
+            color: var(--color-miss);
         }
 
         /* ── PRE-GAME SCREEN ── */
@@ -608,13 +672,17 @@
             border-top: 1px solid var(--border-subtle);
             padding: var(--sp-5) var(--sp-5) max(var(--sp-5), env(safe-area-inset-bottom));
             transform: translateY(105%);
-            transition: transform .3s cubic-bezier(.32, 1, .23, 1);
+            transition: transform .3s cubic-bezier(.32, 1, .23, 1), visibility 0s linear .3s;
             pointer-events: none;
+            visibility: hidden;
+            /* fully hidden until open — eliminates bottom-edge creep */
         }
 
         .overlay.open .drawer {
             transform: translateY(0);
             pointer-events: auto;
+            visibility: visible;
+            transition: transform .3s cubic-bezier(.32, 1, .23, 1), visibility 0s linear 0s;
         }
 
         .drawer-scroll {
@@ -632,6 +700,12 @@
 
         /* ── COMPACT SHOT MODAL (landscape / short screens) ── */
         @media (max-height: 500px) {
+
+            /* Hide the 'Select Player' heading row in landscape — it wastes space */
+            #shotStep1 .modal-header h3 {
+                display: none;
+            }
+
             #shotModal {
                 align-items: center;
             }
@@ -639,11 +713,22 @@
             #shotModal .drawer {
                 border-radius: var(--radius-xl);
                 padding: var(--sp-2) var(--sp-3);
-                max-height: 96dvh;
+                max-height: 92dvh;
                 overflow-y: auto;
-                max-width: 520px;
+                max-width: 480px;
                 border-top: none;
                 border: 1px solid var(--border-subtle);
+                /* In landscape the drawer starts centered (no bottom-slide needed) */
+                transform: scale(0.94) translateY(0);
+                opacity: 0;
+                transition: transform .22s cubic-bezier(.32, 1, .23, 1), opacity .22s, visibility 0s linear .22s;
+            }
+
+            #shotModal.open .drawer {
+                transform: scale(1) translateY(0);
+                opacity: 1;
+                visibility: visible;
+                transition: transform .22s cubic-bezier(.32, 1, .23, 1), opacity .22s, visibility 0s linear 0s;
             }
 
             #shotModal .pill {
@@ -968,7 +1053,9 @@
         <!-- Step 1: Setup -->
         <div class="pregame-step active" id="pgStep0">
             <div class="pregame-title">⚙️ Game Setup</div>
-            <div class="pregame-subtitle">Configure your teams and roster before the game begins.</div>
+            <div class="pregame-subtitle">Configure your teams and roster before the game begins. Each team needs at
+                least <strong>5 players</strong>.</div>
+            <div id="pgSetupError" class="pg-error-banner"></div>
             <div id="pgTeamSetupList"
                 style="display:flex;flex-direction:column;gap:var(--sp-3);margin-bottom:var(--sp-4);"></div>
             <div
@@ -987,7 +1074,9 @@
         <!-- Step 2: Lineup -->
         <div class="pregame-step" id="pgStep1">
             <div class="pregame-title">🏀 Set Starting Lineup</div>
-            <div class="pregame-subtitle">Tap players to mark them as starters. Submit when ready.</div>
+            <div class="pregame-subtitle">Tap players to mark them as starters. <strong>Each team must have exactly 5
+                    starters.</strong></div>
+            <div id="pgLineupError" class="pg-error-banner"></div>
             <div id="pgLineupTeamTabs" style="display:flex;gap:var(--sp-2);margin-bottom:var(--sp-3);"></div>
             <div id="preGameLineupContent" style="margin-bottom:var(--sp-3);"></div>
             <div class="pregame-lineup-submitted" id="pgLineupSubmittedBadge">
@@ -1045,7 +1134,7 @@
                 </svg>
             </button>
             <div id="menuDropdown"
-                style="display:none;position:absolute;top:100%;right:0;background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);margin-top:var(--sp-1);z-index:50;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.5);">
+                style="display:none;position:absolute;top:100%;right:0;background:var(--bg-base);border:1px solid var(--border-subtle);border-radius:var(--radius-sm);margin-top:var(--sp-1);z-index:300;min-width:180px;box-shadow:0 8px 24px rgba(0,0,0,.5);">
                 <button id="btnUndoMenu" class="menu-btn" title="Undo last shot">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                         stroke-linecap="round" stroke-linejoin="round">
@@ -1525,6 +1614,8 @@
 
         function savePgSetup() {
             let hasDupes = false;
+            const MIN_PLAYERS = 5;
+            // First pass: collect all values
             teams.forEach((team, i) => {
                 team.color = document.getElementById(`pg_tc_${i}`).value;
                 team.name = document.getElementById(`pg_tn_${i}`).value.trim() || DEF_NAMES[i];
@@ -1548,6 +1639,23 @@
                 }
             });
             if (hasDupes) return false;
+
+            // Second pass: enforce minimum roster size
+            const errorBanner = document.getElementById('pgSetupError');
+            const shortTeams = teams.filter(t => t.players.length < MIN_PLAYERS);
+            if (shortTeams.length > 0) {
+                const lines = shortTeams.map(t =>
+                    `<li><strong>${t.name}</strong>: ${t.players.length} player${t.players.length !== 1 ? 's' : ''} — need ${MIN_PLAYERS - t.players.length} more</li>`
+                ).join('');
+                errorBanner.innerHTML = `
+                    ⚠️ Each team must have at least <strong>${MIN_PLAYERS} players</strong>:<ul>${lines}</ul>`;
+                errorBanner.classList.add('visible');
+                // Scroll error into view
+                errorBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                return false;
+            }
+            if (errorBanner) errorBanner.classList.remove('visible');
+
             const qInput = document.getElementById('pgQuarterMinsInput');
             if (qInput) {
                 quarterMins = Math.max(1, Math.min(20, +qInput.value || 8));
@@ -1560,13 +1668,16 @@
         }
 
         function buildPgLineupUI() {
+            const MIN_STARTERS = 5;
             const tabsEl = document.getElementById('pgLineupTeamTabs');
             const contentEl = document.getElementById('preGameLineupContent');
             tabsEl.innerHTML = '';
             teams.forEach((team, i) => {
+                const onCount = onCourt[i] ? onCourt[i].size : 0;
+                const isOk = onCount >= MIN_STARTERS;
                 const tab = document.createElement('button');
-                tab.style.cssText = `padding:var(--sp-1) var(--sp-3);border-radius:20px;border:1.5px solid ${i === pgLineupTeamIdx ? team.color : 'var(--border-subtle)'};background:${i === pgLineupTeamIdx ? `rgba(${hexToRgb(team.color)},0.15)` : 'var(--bg-elevated)'};color:${i === pgLineupTeamIdx ? team.color : 'var(--text-secondary)'};font:700 12px 'Inter',sans-serif;cursor:pointer;`;
-                tab.textContent = team.name;
+                tab.style.cssText = `padding:var(--sp-1) var(--sp-3);border-radius:20px;border:1.5px solid ${i === pgLineupTeamIdx ? team.color : 'var(--border-subtle)'};background:${i === pgLineupTeamIdx ? `rgba(${hexToRgb(team.color)},0.15)` : 'var(--bg-elevated)'};color:${i === pgLineupTeamIdx ? team.color : 'var(--text-secondary)'};font:700 12px 'Inter',sans-serif;cursor:pointer;display:flex;align-items:center;gap:6px;`;
+                tab.innerHTML = `${team.name}<span class="pg-starter-count ${isOk ? 'ok' : 'short'}">${onCount}/${MIN_STARTERS}</span>`;
                 tab.onclick = () => { pgLineupTeamIdx = i; buildPgLineupUI(); };
                 tabsEl.appendChild(tab);
             });
@@ -1593,10 +1704,6 @@
                     if (onCourt[pgLineupTeamIdx].has(player.num)) {
                         onCourt[pgLineupTeamIdx].delete(player.num);
                     } else {
-                        if (onCourt[pgLineupTeamIdx].size >= 5) {
-                            showToast('Max 5 starters per team');
-                            return;
-                        }
                         onCourt[pgLineupTeamIdx].add(player.num);
                     }
                     buildPgLineupUI();
@@ -1604,9 +1711,12 @@
                 contentEl.appendChild(row);
             });
             const onCount = onCourt[pgLineupTeamIdx] ? onCourt[pgLineupTeamIdx].size : 0;
+            const needed = Math.max(0, MIN_STARTERS - onCount);
             const countEl = document.createElement('div');
-            countEl.style.cssText = 'text-align:center;font-size:11px;color:var(--text-faint);margin-top:var(--sp-2);';
-            countEl.textContent = `${onCount} player${onCount !== 1 ? 's' : ''} on court`;
+            countEl.style.cssText = `text-align:center;font-size:12px;font-weight:700;margin-top:var(--sp-2);color:${onCount >= MIN_STARTERS ? 'var(--color-make)' : 'var(--color-miss)'};`;
+            countEl.textContent = onCount >= MIN_STARTERS
+                ? `✓ ${onCount} starters selected`
+                : `Select ${needed} more starter${needed !== 1 ? 's' : ''} (${onCount}/${MIN_STARTERS})`;
             contentEl.appendChild(countEl);
         }
 
@@ -1649,6 +1759,23 @@
             if (savePgSetup()) showPgStep(1);
         };
         document.getElementById('btnPgSubmitLineup').onclick = () => {
+            const MIN_STARTERS = 5;
+            const errorBanner = document.getElementById('pgLineupError');
+            const shortTeams = teams.filter((t, i) => (onCourt[i] ? onCourt[i].size : 0) < MIN_STARTERS);
+            if (shortTeams.length > 0) {
+                const lines = shortTeams.map((t, _) => {
+                    const ti = teams.indexOf(t);
+                    const cnt = onCourt[ti] ? onCourt[ti].size : 0;
+                    const need = MIN_STARTERS - cnt;
+                    return `<li><strong>${t.name}</strong>: ${cnt} starter${cnt !== 1 ? 's' : ''} selected — need ${need} more</li>`;
+                }).join('');
+                errorBanner.innerHTML = `⚠️ Each team must have <strong>${MIN_STARTERS} starters</strong> selected:<ul>${lines}</ul>`;
+                errorBanner.classList.add('visible');
+                errorBanner.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+                return;
+            }
+            // All teams meet requirement
+            if (errorBanner) errorBanner.classList.remove('visible');
             lineupSubmitted = true;
             document.getElementById('pgLineupSubmittedBadge').classList.add('visible');
             // Record initial on-court events

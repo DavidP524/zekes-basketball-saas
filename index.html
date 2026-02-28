@@ -306,7 +306,7 @@
         @media (max-width: 640px) {
             .side-panel {
                 position: fixed;
-                top: 88px;
+                /* top is set dynamically by syncPanelTop() in JS */
                 bottom: 0;
                 width: 180px;
                 z-index: 40;
@@ -398,7 +398,7 @@
             .side-panel {
                 position: fixed !important;
                 width: 130px !important;
-                top: 70px !important;
+                /* top is set dynamically by syncPanelTop() in JS */
                 bottom: 0 !important;
                 z-index: 40 !important;
             }
@@ -1834,7 +1834,9 @@
         // ══════════════════════════════════
         function init() {
             syncCanvas();
+            syncPanelTop();
             window.addEventListener('resize', syncCanvas);
+            window.addEventListener('resize', syncPanelTop);
             updateCourtLabels();
             initZones();
             renderAll();
@@ -1850,6 +1852,15 @@
             const sRect = courtSvg.getBoundingClientRect();
             heatCanvas.width = sRect.width || courtWrapper.clientWidth;
             heatCanvas.height = sRect.height || courtWrapper.clientHeight;
+        }
+
+        function syncPanelTop() {
+            // Pin panels directly below the quarter bar (zero gap, any orientation)
+            const qBar = document.getElementById('quarterBar');
+            if (!qBar) return;
+            const px = qBar.getBoundingClientRect().bottom + 'px';
+            document.getElementById('statsLeft').style.top = px;
+            document.getElementById('statsRight').style.top = px;
         }
 
         function updateCourtLabels() {
@@ -2057,9 +2068,33 @@
             markersLayer.style.pointerEvents = 'none';
         }
         window.addEventListener('resize', positionMarkersLayer);
+
+        // ResizeObserver on the SVG catches any layout change that resize events miss
+        // (e.g. mobile rotation on some browsers that don't fire resize reliably)
+        if (typeof ResizeObserver !== 'undefined') {
+            new ResizeObserver(() => {
+                positionMarkersLayer();
+                syncCanvas();
+                renderShots();
+            }).observe(courtSvg);
+        }
         window.addEventListener('orientationchange', () => {
-            // Longer delay lets the browser fully settle the layout after rotation
-            setTimeout(() => { positionMarkersLayer(); syncCanvas(); }, 300);
+            // Double-RAF fires after the browser paints the new layout post-rotation
+            requestAnimationFrame(() => {
+                requestAnimationFrame(() => {
+                    positionMarkersLayer();
+                    syncCanvas();
+                    syncPanelTop();
+                    renderShots();
+                });
+            });
+            // Belt-and-suspenders: also fire after a longer delay for slow devices
+            setTimeout(() => {
+                positionMarkersLayer();
+                syncCanvas();
+                syncPanelTop();
+                renderShots();
+            }, 500);
         });
 
         function renderShots() {
@@ -3450,6 +3485,7 @@
                 btn.style.color = '';
             }
             syncCanvas();
+            syncPanelTop();
         });
 
         // ══════════════════════════════════

@@ -988,6 +988,116 @@
             background: var(--border-medium);
             border-radius: var(--radius-full);
         }
+
+        /* ── TOP PERFORMERS WIDGET ── */
+        #top-performers-widget {
+            border-bottom: 1px solid var(--border-subtle);
+            flex-shrink: 0;
+        }
+
+        #top-performers-widget .tp-header {
+            padding: 5px var(--sp-2) 4px;
+            font-size: 8px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: .12em;
+            color: var(--color-fg-pct);
+        }
+
+        #top-performers-widget .tp-row {
+            display: grid;
+            grid-template-columns: 28px 1fr auto;
+            align-items: center;
+            gap: 4px;
+            padding: 3px var(--sp-2);
+            border-top: 1px solid var(--border-subtle);
+            font-size: 9px;
+        }
+
+        #top-performers-widget .tp-row:first-of-type {
+            border-top: none;
+        }
+
+        #top-performers-widget .tp-badge {
+            font-size: 9px;
+            font-weight: 900;
+            text-align: center;
+            line-height: 1;
+        }
+
+        #top-performers-widget .tp-name {
+            font-size: 9px;
+            font-weight: 700;
+            color: var(--text-secondary);
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        #top-performers-widget .tp-stats {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 1px;
+            white-space: nowrap;
+        }
+
+        #top-performers-widget .tp-pts {
+            font-size: 11px;
+            font-weight: 900;
+            font-variant-numeric: tabular-nums;
+        }
+
+        #top-performers-widget .tp-pct {
+            font-size: 8px;
+            font-weight: 700;
+            color: var(--text-muted);
+        }
+
+        #top-performers-widget .tp-empty {
+            padding: var(--sp-2) var(--sp-2) var(--sp-2);
+            font-size: 9px;
+            color: var(--text-faint);
+            font-style: italic;
+        }
+
+        /* ── SHOT FEED ── */
+        #shot-feed {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            display: flex;
+            flex-direction: column-reverse;
+            align-items: center;
+            gap: 6px;
+            z-index: 80;
+            pointer-events: none;
+        }
+
+        .feed-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 6px 16px;
+            border-radius: var(--radius-full);
+            background: rgba(15, 25, 35, 0.92);
+            border: 1.5px solid;
+            font-size: 12px;
+            font-weight: 900;
+            letter-spacing: .07em;
+            text-transform: uppercase;
+            white-space: nowrap;
+            opacity: 1;
+            transform: translateY(0);
+            transition: opacity 0.35s ease, transform 0.35s ease;
+            pointer-events: none;
+        }
+
+        .feed-pill.fade-out {
+            opacity: 0;
+            transform: translateY(6px);
+        }
     </style>
 </head>
 
@@ -1269,6 +1379,7 @@
 
         <!-- ══ RIGHT STATS PANEL ══ -->
         <div id="statsRight" class="side-panel">
+            <div id="top-performers-widget"></div>
             <div class="sp-header" id="spRightHeader"></div>
             <div class="sp-body" id="spRightBody"></div>
             <div class="sp-footer" id="spRightFooter"></div>
@@ -2155,7 +2266,56 @@
         // ══════════════════════════════════
         // SPLIT STATS PANELS
         // ══════════════════════════════════
+        function getTopPerformers() {
+            // Build a flat list of all players across both teams with their stats
+            const performers = [];
+            teams.forEach((team, ti) => {
+                const teamShots = shots.filter(s => s.teamIdx === ti && shotInQuarter(s) && shotVisible(s));
+                const playerNums = [...new Set([
+                    ...team.players.map(p => normPlayer(p).num),
+                    ...shots.filter(s => s.teamIdx === ti).map(s => s.playerId)
+                ])];
+                playerNums.forEach(pid => {
+                    const ps = teamShots.filter(s => s.playerId === pid);
+                    if (ps.length === 0) return;
+                    const makes = ps.filter(s => s.make).length;
+                    const att = ps.length;
+                    const pts = ps.filter(s => s.make).reduce((a, s) => a + shotPoints(s), 0);
+                    const pct = Math.round((makes / att) * 100);
+                    performers.push({ pid, ti, teamName: team.name, teamColor: team.color, pts, makes, att, pct });
+                });
+            });
+            // Sort: primary = pts desc, secondary = pct desc
+            performers.sort((a, b) => b.pts - a.pts || b.pct - a.pct);
+            return performers.slice(0, 3);
+        }
+
+        function renderTopPerformers() {
+            const widget = document.getElementById('top-performers-widget');
+            if (!widget) return;
+            const top = getTopPerformers();
+            if (top.length === 0) {
+                widget.innerHTML = `<div class="tp-header">Game Leaders</div><div class="tp-empty">No shots yet</div>`;
+                return;
+            }
+            const rows = top.map((p, rank) => {
+                const medal = rank === 0 ? '🥇' : rank === 1 ? '🥈' : '🥉';
+                const flame = p.pct >= 60 ? ' 🔥' : '';
+                return `
+                    <div class="tp-row">
+                        <div class="tp-badge" style="color:${p.teamColor};">${medal}</div>
+                        <div class="tp-name" style="color:${p.teamColor};">#${p.pid} ${p.teamName}</div>
+                        <div class="tp-stats">
+                            <span class="tp-pts" style="color:${p.teamColor};">${p.pts} PTS</span>
+                            <span class="tp-pct">${p.pct}% FG${flame}</span>
+                        </div>
+                    </div>`;
+            }).join('');
+            widget.innerHTML = `<div class="tp-header">Game Leaders</div>${rows}`;
+        }
+
         function renderStats() {
+            renderTopPerformers();
             renderTeamPanel(0, 'spLeftHeader', 'spLeftBody', 'spLeftFooter');
             renderTeamPanel(1, 'spRightHeader', 'spRightBody', 'spRightFooter');
         }
@@ -2406,13 +2566,13 @@
         }
 
         courtWrapper.addEventListener('click', e => {
-            if (e.target.closest('.sm')) return;
+            if (!editMode && e.target.closest('.sm')) return;
             handleCourtTap(e.clientX, e.clientY);
         });
 
         // Touch support for mobile
         courtWrapper.addEventListener('touchstart', e => {
-            if (e.target.closest('.sm')) return;
+            if (!editMode && e.target.closest('.sm')) return;
             e.preventDefault(); // prevent scroll jitter shifting coordinates
             const touch = e.touches[0];
             handleCourtTap(touch.clientX, touch.clientY);
@@ -2491,12 +2651,38 @@
         }
 
 
+        function showFeedUpdate(shot) {
+            const feed = document.getElementById('shot-feed');
+            if (!feed) return;
+            const team = teams[shot.teamIdx];
+            const color = shot.make ? 'var(--color-make)' : 'var(--color-miss)';
+            const zone = shot.ft ? 'FREE THROW' : classifyZone(shot.x, shot.y, shot.teamIdx).toUpperCase();
+            const outcome = shot.make ? 'MAKE' : 'MISS';
+            const teamName = (team?.name || '').toUpperCase();
+            const pill = document.createElement('div');
+            pill.className = 'feed-pill';
+            pill.style.borderColor = color;
+            pill.style.color = color;
+            pill.innerHTML = `<span style="color:${team?.color || color};">&#9839;${shot.playerId}</span><span style="color:var(--text-secondary);">${teamName}</span><span>${zone}</span><span>${outcome}</span>`;
+            feed.appendChild(pill);
+            // Cap feed at 3 visible pills — remove oldest first
+            const pills = feed.querySelectorAll('.feed-pill');
+            if (pills.length > 3) pills[0].remove();
+            // Fade out and remove after 8s
+            setTimeout(() => {
+                pill.classList.add('fade-out');
+                setTimeout(() => pill.remove(), 360);
+            }, 8000);
+        }
+
         function recordShot(make) {
             if (!currentTap || !selectedShotPlayer) return;
-            shots.push({ id: Date.now(), playerId: selectedShotPlayer, teamIdx: selTeamIdx, make, x: currentTap.x, y: currentTap.y, quarter: lastExplicitQuarter, ts: new Date().toISOString() });
+            const shot = { id: Date.now(), playerId: selectedShotPlayer, teamIdx: selTeamIdx, make, x: currentTap.x, y: currentTap.y, quarter: lastExplicitQuarter, ts: new Date().toISOString() };
+            shots.push(shot);
             saveShots();
             if (heatOn) heatOn = false;
             haptic(make ? 'make' : 'miss');
+            showFeedUpdate(shot);
             closeShot();
             renderAll();
         }
@@ -2505,10 +2691,12 @@
             if (!selectedShotPlayer) return;
             const ftX = selTeamIdx === 0 ? 21 : 79;
             const ftY = 50;
-            shots.push({ id: Date.now(), playerId: selectedShotPlayer, teamIdx: selTeamIdx, make, x: ftX, y: ftY, ft: true, quarter: lastExplicitQuarter, ts: new Date().toISOString() });
+            const shot = { id: Date.now(), playerId: selectedShotPlayer, teamIdx: selTeamIdx, make, x: ftX, y: ftY, ft: true, quarter: lastExplicitQuarter, ts: new Date().toISOString() };
+            shots.push(shot);
             saveShots();
             if (heatOn) heatOn = false;
             haptic(make ? 'make' : 'miss');
+            showFeedUpdate(shot);
             closeShot();
             renderAll();
         }
@@ -3494,6 +3682,8 @@
         // ══════════════════════════════════
         init();
     </script>
+
+    <div id="shot-feed"></div>
 </body>
 
 </html>

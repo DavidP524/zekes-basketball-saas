@@ -154,34 +154,41 @@
             cursor: default;
             transition: opacity .2s;
         }
+
         .sm.dimmed {
             opacity: .18;
         }
+
         .sm:hover .sm-shape {
             transform: scale(1.35);
         }
+
         .sm .sm-shape {
             transform-box: fill-box;
             transform-origin: center;
             transition: transform .12s;
         }
+
         .sm-make .sm-shape {
             fill: var(--color-make-bg);
             stroke: var(--color-make);
             stroke-width: 1.5;
             stroke-dasharray: none;
         }
+
         .sm-miss .sm-shape {
             fill: var(--color-miss-bg);
             stroke: var(--color-miss);
             stroke-width: 1.5;
             stroke-dasharray: 3 2;
         }
+
         .sm-selected .sm-shape {
             stroke: var(--color-miss);
             stroke-width: 2.5;
             filter: drop-shadow(0 0 3px #fff) drop-shadow(0 0 5px var(--color-miss));
         }
+
         .sm text {
             font-family: 'Inter', sans-serif;
             fill: white;
@@ -430,7 +437,7 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
+            justify-content: flex-start;
             padding: var(--sp-5);
             overflow-y: auto;
         }
@@ -1226,14 +1233,17 @@
         <!-- Center: Score -->
         <div id="scoreDisplay"
             style="display:flex;align-items:center;gap:6px;flex:1;justify-content:center;pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums;">
-            <span id="scoreHomeName" style="font-size:clamp(8px,1.4vw,11px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#3b82f6;max-width:60px;overflow:hidden;text-overflow:ellipsis;"></span>
+            <span id="scoreHomeName"
+                style="font-size:clamp(8px,1.4vw,11px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#3b82f6;max-width:60px;overflow:hidden;text-overflow:ellipsis;"></span>
             <span id="scoreHome" style="font-size:clamp(18px,3vw,24px);font-weight:900;color:#3b82f6;">0</span>
             <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
-                <span id="quarterBadge" style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);line-height:1;">Q1</span>
+                <span id="quarterBadge"
+                    style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);line-height:1;">Q1</span>
                 <span style="color:var(--border-medium);font-size:14px;font-weight:900;line-height:1;">—</span>
             </div>
             <span id="scoreAway" style="font-size:clamp(18px,3vw,24px);font-weight:900;color:#f97316;">0</span>
-            <span id="scoreAwayName" style="font-size:clamp(8px,1.4vw,11px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#f97316;max-width:60px;overflow:hidden;text-overflow:ellipsis;"></span>
+            <span id="scoreAwayName"
+                style="font-size:clamp(8px,1.4vw,11px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#f97316;max-width:60px;overflow:hidden;text-overflow:ellipsis;"></span>
         </div>
 
         <!-- Right: Menu Button Only -->
@@ -1588,6 +1598,9 @@
         </div>
     </div>
 
+    <div id="shot-feed"></div>
+    <button id="undo-float">↩ Undo Last</button>
+
     <script>
         // ══════════════════════════════════
         // CONSTANTS & STATE
@@ -1596,10 +1609,16 @@
         const DEF_COLORS = ['#3b82f6', '#f97316', '#8b5cf6', '#ec4899'];
         const DEF_NAMES = ['Home', 'Away', 'Team 3', 'Team 4'];
 
-        let teams = JSON.parse(localStorage.getItem('nd_teams')) || [
-            { name: 'Home', color: '#3b82f6', shape: 'circle', players: [], active: true },
-            { name: 'Away', color: '#f97316', shape: 'square', players: [], active: true },
-        ];
+        let teams = (() => {
+            try {
+                const saved = JSON.parse(localStorage.getItem('nd_teams'));
+                if (Array.isArray(saved) && saved.length >= 2 && saved.every(t => t && Array.isArray(t.players))) return saved;
+            } catch (e) { }
+            return [
+                { name: 'Home', color: '#3b82f6', shape: 'circle', players: [], active: true },
+                { name: 'Away', color: '#f97316', shape: 'square', players: [], active: true },
+            ];
+        })();
         let shots = JSON.parse(localStorage.getItem('nd_shots')) || [];
         let lastPlayer = localStorage.getItem('nd_lastPlayer') || '';
         let lastTeamIdx = +(localStorage.getItem('nd_lastTeam') ?? 0);
@@ -1680,6 +1699,7 @@
 
         function buildPgSetupUI() {
             const container = document.getElementById('pgTeamSetupList');
+            if (!container) return;
             container.innerHTML = '';
             const qInput = document.getElementById('pgQuarterMinsInput');
             if (qInput) qInput.value = quarterMins;
@@ -1712,6 +1732,8 @@
                     entriesContainer.appendChild(row);
                 });
                 sec.querySelector(`#pgBtnAddPlayer_${i}`).onclick = () => {
+                    const live = sec.querySelector(`#pgPlayerEntries_${i}`);
+                    if (!live) return;
                     const row = document.createElement('div');
                     row.className = 'player-entry-row';
                     row.style.cssText = 'display:grid;grid-template-columns:80px 1fr 28px;gap:var(--sp-2);';
@@ -1721,7 +1743,7 @@
     <button type="button" class="nd-btn" style="background:var(--bg-elevated);color:var(--color-danger);padding:var(--sp-1) var(--sp-2);font-size:12px;">✕</button>
     `;
                     row.querySelector('button').onclick = () => row.remove();
-                    entriesContainer.appendChild(row);
+                    live.appendChild(row);
                 };
                 container.appendChild(sec);
             });
@@ -1932,7 +1954,9 @@
                 return;
             }
             // Show pregame screen at step 0 (setup)
-            document.getElementById('preGameScreen').classList.remove('hidden');
+            const ps = document.getElementById('preGameScreen');
+            ps.classList.remove('hidden');
+            ps.style.display = 'flex';
             showPgStep(0);
             buildPgSetupUI();
         }
@@ -1966,15 +1990,15 @@
             const dpr = window.devicePixelRatio || 1;
             const wRect = courtWrapper.getBoundingClientRect();
             const sRect = courtSvg.getBoundingClientRect();
-            const cssW = sRect.width  || courtWrapper.clientWidth;
+            const cssW = sRect.width || courtWrapper.clientWidth;
             const cssH = sRect.height || courtWrapper.clientHeight;
             // Bitmap size = CSS size × DPR (physical pixels)
-            heatCanvas.width  = Math.round(cssW * dpr);
+            heatCanvas.width = Math.round(cssW * dpr);
             heatCanvas.height = Math.round(cssH * dpr);
             // CSS size stays in logical pixels so the element overlays the SVG correctly
-            heatCanvas.style.left   = (sRect.left - wRect.left) + 'px';
-            heatCanvas.style.top    = (sRect.top  - wRect.top)  + 'px';
-            heatCanvas.style.width  = cssW + 'px';
+            heatCanvas.style.left = (sRect.left - wRect.left) + 'px';
+            heatCanvas.style.top = (sRect.top - wRect.top) + 'px';
+            heatCanvas.style.width = cssW + 'px';
             heatCanvas.style.height = cssH + 'px';
         }
 
@@ -2301,9 +2325,9 @@
                     const x = (pt[0] / 100) * heatCanvas.clientWidth;
                     const y = (pt[1] / 100) * heatCanvas.clientHeight;
                     const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
-                    grad.addColorStop(0,    `rgba(${r0},${g0},${b0},0.50)`);
-                    grad.addColorStop(0.4,  `rgba(${r0},${g0},${b0},0.20)`);
-                    grad.addColorStop(1,    'rgba(0,0,0,0)');
+                    grad.addColorStop(0, `rgba(${r0},${g0},${b0},0.50)`);
+                    grad.addColorStop(0.4, `rgba(${r0},${g0},${b0},0.20)`);
+                    grad.addColorStop(1, 'rgba(0,0,0,0)');
                     ctx.beginPath();
                     ctx.arc(x, y, r, 0, Math.PI * 2);
                     ctx.fillStyle = grad;
@@ -2312,7 +2336,7 @@
             }
 
             // Green pass — makes
-            drawPass(pts.filter(pt => pt[2]),  52, 211, 153);
+            drawPass(pts.filter(pt => pt[2]), 52, 211, 153);
             // Red pass — misses
             drawPass(pts.filter(pt => !pt[2]), 248, 113, 113);
 
@@ -3758,9 +3782,6 @@
         // ══════════════════════════════════
         init();
     </script>
-
-    <div id="shot-feed"></div>
-    <button id="undo-float">↩ Undo Last</button>
 </body>
 
 </html>

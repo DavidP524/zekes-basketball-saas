@@ -1076,10 +1076,12 @@
         /* ── UNDO FLOAT ── */
         #undo-float {
             position: fixed;
-            top: 56px;
+            bottom: 15px;
             left: 50%;
-            transform: translateX(-50%) translateY(-6px);
-            background: rgba(15, 25, 35, 0.88);
+            transform: translateX(-50%) translateY(10px);
+            background: rgba(15, 25, 35, 0.82);
+            backdrop-filter: blur(6px);
+            -webkit-backdrop-filter: blur(6px);
             border: 1px solid var(--border-medium);
             color: var(--text-secondary);
             font-size: 10px;
@@ -1199,9 +1201,9 @@
 
         <!-- Center: Score -->
         <div id="scoreDisplay"
-            style="display:flex;align-items:center;gap:6px;flex:1;justify-content:center;pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums;">
+            style="display:flex;align-items:center;gap:6px;flex:1;min-width:0;justify-content:center;pointer-events:none;font-variant-numeric:tabular-nums;">
             <span id="scoreHomeName"
-                style="font-size:clamp(9px,1.6vw,13px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#3b82f6;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;"></span>
+                style="font-size:clamp(10px,1.8vw,14px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#3b82f6;flex:1;min-width:0;text-align:right;overflow:hidden;text-overflow:ellipsis;"></span>
             <span id="scoreHome" style="font-size:clamp(18px,3vw,24px);font-weight:900;color:#3b82f6;">0</span>
             <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
                 <span id="quarterBadge"
@@ -1210,7 +1212,7 @@
             </div>
             <span id="scoreAway" style="font-size:clamp(18px,3vw,24px);font-weight:900;color:#f97316;">0</span>
             <span id="scoreAwayName"
-                style="font-size:clamp(9px,1.6vw,13px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#f97316;flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;"></span>
+                style="font-size:clamp(10px,1.8vw,14px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#f97316;flex:1;min-width:0;text-align:left;overflow:hidden;text-overflow:ellipsis;"></span>
         </div>
 
         <!-- Right: Menu Button Only -->
@@ -2341,13 +2343,21 @@
             // 'screen' composite: overlapping blobs of the same color accumulate into
             // bright hot spots. Makes = green channel, Misses = red channel.
             ctx.globalCompositeOperation = 'screen';
+
+            // Use the SVG's live bounding rect for accurate coordinate mapping.
+            // This accounts for preserveAspectRatio letterboxing in landscape mode:
+            // the canvas is positioned to the SVG rect, so we draw in SVG-local coords.
+            const sRect = courtSvg.getBoundingClientRect();
+            const drawW = sRect.width;
+            const drawH = sRect.height;
+
             // Radius in CSS pixels — ctx.scale(dpr,dpr) converts to physical pixels.
-            const r = 42 * (heatCanvas.clientWidth / 860);
+            const r = 42 * (drawW / 860);
 
             function drawPass(list, r0, g0, b0) {
                 list.forEach(pt => {
-                    const x = (pt[0] / 100) * heatCanvas.clientWidth;
-                    const y = (pt[1] / 100) * heatCanvas.clientHeight;
+                    const x = (pt[0] / 100) * drawW;
+                    const y = (pt[1] / 100) * drawH;
                     const grad = ctx.createRadialGradient(x, y, 0, x, y, r);
                     grad.addColorStop(0, `rgba(${r0},${g0},${b0},0.50)`);
                     grad.addColorStop(0.4, `rgba(${r0},${g0},${b0},0.20)`);
@@ -3146,8 +3156,14 @@
                 return { team, pts, makes, att, fgPct, twoAtt, twoMakes, ftAtt, ftMakes, threeAtt, threeMakes, leaders };
             });
 
-            // Heatmap snapshot
-            const heatImg = heatCanvas.toDataURL('image/png');
+            // Ensure heatmap canvas is populated before capture
+            const prevHeatOn = heatOn;
+            heatOn = true;
+            renderShots();
+            heatOn = prevHeatOn;
+
+            // Heatmap snapshot — max quality PNG
+            const heatImg = heatCanvas.toDataURL('image/png', 1.0);
 
             const medalEmoji = ['🥇', '🥈'];
 
@@ -3244,7 +3260,18 @@
 </div>
 
 <script>
-  window.onload = function() { window.print(); };
+  // Wait for all images (heatmap) to fully decode before printing
+  window.onload = function() {
+    var imgs = document.images;
+    var total = imgs.length;
+    if (total === 0) { window.print(); return; }
+    var loaded = 0;
+    function checkDone() { if (++loaded >= total) window.print(); }
+    for (var i = 0; i < total; i++) {
+      if (imgs[i].complete) { checkDone(); }
+      else { imgs[i].onload = checkDone; imgs[i].onerror = checkDone; }
+    }
+  };
 <\/script>
 </body>
 </html>`;

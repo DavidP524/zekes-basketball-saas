@@ -1073,58 +1073,20 @@
             font-style: italic;
         }
 
-        /* ── SHOT FEED ── */
-        #shot-feed {
-            position: fixed;
-            bottom: 110px;
-            left: 50%;
-            transform: translateX(-50%);
-            display: flex;
-            flex-direction: column-reverse;
-            align-items: center;
-            gap: 6px;
-            z-index: 80;
-            pointer-events: none;
-        }
-
-        .feed-pill {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            padding: 6px 16px;
-            border-radius: var(--radius-full);
-            background: rgba(15, 25, 35, 0.92);
-            border: 1.5px solid;
-            font-size: 12px;
-            font-weight: 900;
-            letter-spacing: .07em;
-            text-transform: uppercase;
-            white-space: nowrap;
-            opacity: 1;
-            transform: translateY(0);
-            transition: opacity 0.35s ease, transform 0.35s ease;
-            pointer-events: none;
-        }
-
-        .feed-pill.fade-out {
-            opacity: 0;
-            transform: translateY(6px);
-        }
-
         /* ── UNDO FLOAT ── */
         #undo-float {
             position: fixed;
-            bottom: 40px;
+            top: 56px;
             left: 50%;
-            transform: translateX(-50%) translateY(8px);
-            background: rgba(15, 25, 35, 0.95);
-            border: 1.5px solid var(--color-miss);
-            color: var(--color-miss);
-            font-size: 11px;
-            font-weight: 900;
-            letter-spacing: .1em;
+            transform: translateX(-50%) translateY(-6px);
+            background: rgba(15, 25, 35, 0.88);
+            border: 1px solid var(--border-medium);
+            color: var(--text-secondary);
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: .08em;
             text-transform: uppercase;
-            padding: 6px 18px;
+            padding: 4px 14px;
             border-radius: var(--radius-full);
             cursor: pointer;
             z-index: 90;
@@ -1607,8 +1569,7 @@
         </div>
     </div>
 
-    <div id="shot-feed"></div>
-    <button id="undo-float">↩ Undo Last</button>
+    <button id="undo-float">↩ Undo</button>
 
     <script>
         // ══════════════════════════════════
@@ -2790,30 +2751,6 @@
         }
 
 
-        function showFeedUpdate(shot) {
-            const feed = document.getElementById('shot-feed');
-            if (!feed) return;
-            const team = teams[shot.teamIdx];
-            const color = shot.make ? 'var(--color-make)' : 'var(--color-miss)';
-            const zone = shot.ft ? 'FREE THROW' : classifyZone(shot.x, shot.y, shot.teamIdx).toUpperCase();
-            const outcome = shot.make ? 'MAKE' : 'MISS';
-            const teamName = (team?.name || '').toUpperCase();
-            const pill = document.createElement('div');
-            pill.className = 'feed-pill';
-            pill.style.borderColor = color;
-            pill.style.color = color;
-            pill.innerHTML = `<span style="color:${team?.color || color};">&#9839;${shot.playerId}</span><span style="color:var(--text-secondary);">${teamName}</span><span>${zone}</span><span>${outcome}</span>`;
-            feed.appendChild(pill);
-            // Cap feed at 3 visible pills — remove oldest first
-            const pills = feed.querySelectorAll('.feed-pill');
-            if (pills.length > 3) pills[0].remove();
-            // Fade out and remove after 8s
-            setTimeout(() => {
-                pill.classList.add('fade-out');
-                setTimeout(() => pill.remove(), 360);
-            }, 8000);
-        }
-
         function recordShot(make) {
             if (!currentTap || !selectedShotPlayer) return;
             const shot = { id: Date.now(), playerId: selectedShotPlayer, teamIdx: selTeamIdx, make, x: currentTap.x, y: currentTap.y, quarter: lastExplicitQuarter, ts: new Date().toISOString() };
@@ -2821,7 +2758,6 @@
             saveShots();
             if (heatOn) heatOn = false;
             haptic(make ? 'make' : 'miss');
-            showFeedUpdate(shot);
             showUndoFloat();
             closeShot();
             renderAll();
@@ -2836,7 +2772,6 @@
             saveShots();
             if (heatOn) heatOn = false;
             haptic(make ? 'make' : 'miss');
-            showFeedUpdate(shot);
             showUndoFloat();
             closeShot();
             renderAll();
@@ -3559,7 +3494,7 @@
         function showUndoFloat() {
             clearTimeout(undoFloatTimer);
             undoFloat.classList.add('visible');
-            undoFloatTimer = setTimeout(() => undoFloat.classList.remove('visible'), 5000);
+            undoFloatTimer = setTimeout(() => undoFloat.classList.remove('visible'), 3000);
         }
 
         // ══════════════════════════════════

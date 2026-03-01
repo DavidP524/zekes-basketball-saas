@@ -1076,7 +1076,7 @@
         /* ── SHOT FEED ── */
         #shot-feed {
             position: fixed;
-            bottom: 24px;
+            bottom: 110px;
             left: 50%;
             transform: translateX(-50%);
             display: flex;
@@ -1114,7 +1114,7 @@
         /* ── UNDO FLOAT ── */
         #undo-float {
             position: fixed;
-            bottom: 72px;
+            bottom: 40px;
             left: 50%;
             transform: translateX(-50%) translateY(8px);
             background: rgba(15, 25, 35, 0.95);
@@ -1127,7 +1127,7 @@
             padding: 6px 18px;
             border-radius: var(--radius-full);
             cursor: pointer;
-            z-index: 85;
+            z-index: 90;
             opacity: 0;
             pointer-events: none;
             transition: opacity .2s ease, transform .2s ease;
@@ -1163,6 +1163,11 @@
             <div class="pregame-title">⚙️ Game Setup</div>
             <div class="pregame-subtitle">Configure your teams and roster before the game begins. Each team needs at
                 least <strong>5 players</strong>.</div>
+            <div style="display:flex;align-items:center;gap:var(--sp-3);padding:var(--sp-3);background:var(--bg-elevated);border-radius:var(--radius-sm);margin-bottom:var(--sp-4);">
+                <label style="font-size:12px;font-weight:700;color:var(--text-secondary);flex:1;">Game Name</label>
+                <input type="text" id="pgGameNameInput" placeholder="e.g. Vs. Eagles" class="nd-input"
+                    style="width:160px;text-align:center;font-size:13px;" maxlength="40">
+            </div>
             <div id="pgSetupError" class="pg-error-banner"></div>
             <div id="pgTeamSetupList"
                 style="display:flex;flex-direction:column;gap:var(--sp-3);margin-bottom:var(--sp-4);"></div>
@@ -1234,7 +1239,7 @@
         <div id="scoreDisplay"
             style="display:flex;align-items:center;gap:6px;flex:1;justify-content:center;pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums;">
             <span id="scoreHomeName"
-                style="font-size:clamp(8px,1.4vw,11px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#3b82f6;max-width:60px;overflow:hidden;text-overflow:ellipsis;"></span>
+                style="font-size:clamp(9px,1.6vw,13px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#3b82f6;flex:1;text-align:right;overflow:hidden;text-overflow:ellipsis;"></span>
             <span id="scoreHome" style="font-size:clamp(18px,3vw,24px);font-weight:900;color:#3b82f6;">0</span>
             <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
                 <span id="quarterBadge"
@@ -1243,7 +1248,7 @@
             </div>
             <span id="scoreAway" style="font-size:clamp(18px,3vw,24px);font-weight:900;color:#f97316;">0</span>
             <span id="scoreAwayName"
-                style="font-size:clamp(8px,1.4vw,11px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#f97316;max-width:60px;overflow:hidden;text-overflow:ellipsis;"></span>
+                style="font-size:clamp(9px,1.6vw,13px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#f97316;flex:1;text-align:left;overflow:hidden;text-overflow:ellipsis;"></span>
         </div>
 
         <!-- Right: Menu Button Only -->
@@ -1595,6 +1600,10 @@
             <div id="statsContent" style="display:flex;flex-direction:column;gap:var(--sp-3);">
                 <!-- Stats will be rendered here -->
             </div>
+            <div style="display:flex;gap:var(--sp-2);padding-top:var(--sp-3);margin-top:var(--sp-3);border-top:1px solid var(--border-subtle);">
+                <button id="btnExportPDF" class="nd-btn" style="flex:1;background:var(--bg-elevated);color:var(--text-secondary);font-size:13px;font-weight:700;padding:var(--sp-3);">🖨 PDF Summary</button>
+                <button id="btnExportCSV" class="nd-btn" style="flex:1;background:var(--bg-elevated);color:var(--text-secondary);font-size:13px;font-weight:700;padding:var(--sp-3);">📊 Export CSV</button>
+            </div>
         </div>
     </div>
 
@@ -1641,6 +1650,7 @@
         let clockEvents = JSON.parse(localStorage.getItem('nd_clockEvents')) || []; // { type:'start'|'stop', ts }
         let clockDisplayInterval = null;
         let quarterMins = +(localStorage.getItem('nd_quarterMins') || 8);
+        let gameName = localStorage.getItem('nd_gameName') || '';
 
         // Minutes / lineup tracking
         let subEvents = JSON.parse(localStorage.getItem('nd_subEvents')) || [];
@@ -1651,9 +1661,18 @@
             subEvents.forEach(e => { latestState[`${e.teamIdx}:${e.playerId}`] = e.type; });
             Object.entries(latestState).forEach(([key, type]) => {
                 if (type === 'in') {
-                    const [ti, pid] = key.split(':');
-                    onCourt[+ti].add(pid);
+                    const [tiStr, pid] = key.split(':');
+                    const ti = +tiStr;
+                    // Roster validation: only restore if player exists on current roster
+                    const team = teams[ti];
+                    if (!team) return;
+                    const onRoster = team.players.some(p => normPlayer(p).num === pid);
+                    if (onRoster) onCourt[ti].add(pid);
                 }
+            });
+            // Auto-clear any team that ended up with more than 5 (corrupted state)
+            [0, 1].forEach(ti => {
+                if (onCourt[ti].size > 5) onCourt[ti].clear();
             });
         })();
 
@@ -1703,6 +1722,8 @@
             container.innerHTML = '';
             const qInput = document.getElementById('pgQuarterMinsInput');
             if (qInput) qInput.value = quarterMins;
+            const gnInput = document.getElementById('pgGameNameInput');
+            if (gnInput) gnInput.value = gameName;
             teams.forEach((team, i) => {
                 const sec = document.createElement('div');
                 sec.className = 'section-card';
@@ -1808,10 +1829,32 @@
                 quarterMins = Math.max(1, Math.min(20, +qInput.value || 8));
                 localStorage.setItem('nd_quarterMins', quarterMins);
             }
+            const gnInput = document.getElementById('pgGameNameInput');
+            if (gnInput) {
+                gameName = gnInput.value.trim();
+                localStorage.setItem('nd_gameName', gameName);
+            }
             saveTeams();
             updateCourtLabels();
             renderAll();
             return true;
+        }
+
+        function canStartGame() {
+            // Team 0 must always have exactly 5 starters
+            if ((onCourt[0] ? onCourt[0].size : 0) !== 5) return false;
+            // Team 1 only needs 5 starters if it has players defined
+            const t1HasPlayers = teams[1] && teams[1].players.length > 0;
+            if (t1HasPlayers && (onCourt[1] ? onCourt[1].size : 0) !== 5) return false;
+            return true;
+        }
+
+        function updateStartGameBtn() {
+            const btn = document.getElementById('btnStartGame');
+            if (!btn) return;
+            const ready = canStartGame();
+            console.log('[StartGame] t0:', onCourt[0]?.size ?? 0, '| t1:', onCourt[1]?.size ?? 0, '| ready:', ready);
+            btn.disabled = !ready;
         }
 
         function buildPgLineupUI() {
@@ -1851,6 +1894,10 @@
                     if (onCourt[pgLineupTeamIdx].has(player.num)) {
                         onCourt[pgLineupTeamIdx].delete(player.num);
                     } else {
+                        if (onCourt[pgLineupTeamIdx].size >= MIN_STARTERS) {
+                            showToast('Lineup full — de-select a player to sub them out.');
+                            return;
+                        }
                         onCourt[pgLineupTeamIdx].add(player.num);
                     }
                     buildPgLineupUI();
@@ -1865,6 +1912,7 @@
                 ? `✓ ${onCount} starters selected`
                 : `Select ${needed} more starter${needed !== 1 ? 's' : ''} (${onCount}/${MIN_STARTERS})`;
             contentEl.appendChild(countEl);
+            updateStartGameBtn();
         }
 
         function showPgStep(stepIdx) {
@@ -1879,7 +1927,7 @@
                 if (line) line.classList.toggle('done', i < stepIdx);
             }
             if (stepIdx === 1) buildPgLineupUI();
-            if (stepIdx === 2) buildPgGameSummary();
+            if (stepIdx === 2) { buildPgGameSummary(); updateStartGameBtn(); }
         }
 
         function buildPgGameSummary() {
@@ -1899,6 +1947,7 @@
                 html += '</div>';
             });
             el.innerHTML = html;
+            updateStartGameBtn();
         }
 
         // Wire up pregame buttons
@@ -1931,17 +1980,31 @@
             showPgStep(2);
         };
         document.getElementById('btnStartGame').onclick = () => {
-            // Record initial on-court events NOW (when game actually starts)
+            if (!canStartGame()) {
+                const t0 = onCourt[0] ? onCourt[0].size : 0;
+                const t1HasPlayers = teams[1] && teams[1].players.length > 0;
+                const t1 = onCourt[1] ? onCourt[1].size : 0;
+                if (t0 !== 5) {
+                    showToast(`${teams[0]?.name || 'Home'}: select exactly 5 starters (${t0} selected).`);
+                } else if (t1HasPlayers && t1 !== 5) {
+                    showToast(`${teams[1].name}: select exactly 5 starters (${t1} selected).`);
+                }
+                return;
+            }
+            // Record initial on-court events
             const now = Date.now();
+            const q = lastExplicitQuarter || 1;
             [0, 1].forEach(ti => {
                 if (onCourt[ti]) {
                     onCourt[ti].forEach(pid => {
-                        subEvents.push({ playerId: pid, teamIdx: ti, type: 'in', ts: now, quarter: lastExplicitQuarter });
+                        subEvents.push({ playerId: pid, teamIdx: ti, type: 'in', ts: now, quarter: q });
                     });
                 }
             });
             saveSubEvents();
-            document.getElementById('preGameScreen').classList.add('hidden');
+            const ps = document.getElementById('preGameScreen');
+            ps.style.display = 'none';
+            ps.classList.add('hidden');
         };
 
         // Initialize pregame screen
@@ -2823,6 +2886,8 @@
         statsBg.addEventListener('click', closeStats);
         statsClose.addEventListener('click', closeStats);
         document.getElementById('btnStatsMenu').onclick = openStatsModal;
+        document.getElementById('btnExportCSV').onclick = exportCSV;
+        document.getElementById('btnExportPDF').onclick = exportPDF;
 
         function showPlayerDetail(teamIdx, pid, playerName, playerShots) {
             const team = teams[teamIdx];
@@ -3085,6 +3150,174 @@
 
                 statsContent.appendChild(section);
             });
+        }
+
+        // ══════════════════════════════════
+        // EXPORT: CSV
+        // ══════════════════════════════════
+        function exportCSV() {
+            if (!shots.length) { showToast('No shots to export'); return; }
+            const label = gameName || 'game';
+            const filename = label.replace(/[^a-z0-9_\-]/gi, '_') + '_shots.csv';
+            const header = ['Jersey', 'Player Name', 'Team', 'Result', 'Points', 'Zone', 'Quarter', 'Free Throw', 'Timestamp'];
+            const rows = shots.map(s => {
+                const team = teams[s.teamIdx];
+                const player = team ? team.players.map(normPlayer).find(p => p.num === s.playerId) : null;
+                const playerName = player ? (player.name || '') : '';
+                const zone = classifyZone(s.x, s.y, s.teamIdx);
+                return [
+                    s.playerId,
+                    playerName,
+                    team ? team.name : '',
+                    s.make ? 'Make' : 'Miss',
+                    shotPoints(s),
+                    zone,
+                    s.quarter != null ? s.quarter : '',
+                    s.ft ? 'Yes' : 'No',
+                    s.ts || ''
+                ].map(v => `"${String(v).replace(/"/g, '""')}"`).join(',');
+            });
+            const csv = [header.join(','), ...rows].join('\n');
+            const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = filename;
+            a.click();
+            URL.revokeObjectURL(url);
+        }
+
+        // ══════════════════════════════════
+        // EXPORT: PDF (browser print dialog)
+        // ══════════════════════════════════
+        function exportPDF() {
+            const title = gameName || 'Game Summary';
+            const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
+
+            // Compute team totals
+            const teamStats = teams.map((team, ti) => {
+                const ts = shots.filter(s => s.teamIdx === ti);
+                const pts = ts.filter(s => s.make).reduce((a, s) => a + shotPoints(s), 0);
+                const makes = ts.filter(s => s.make).length;
+                const att = ts.length;
+                const fgPct = att > 0 ? Math.round((makes / att) * 100) : 0;
+                const twoAtt = ts.filter(s => !s.ft).length;
+                const twoMakes = ts.filter(s => !s.ft && s.make).length;
+                const ftAtt = ts.filter(s => s.ft).length;
+                const ftMakes = ts.filter(s => s.ft && s.make).length;
+                const threeAtt = ts.filter(s => !s.ft && classifyZone(s.x, s.y, ti) === '3-Point').length;
+                const threeMakes = ts.filter(s => !s.ft && s.make && classifyZone(s.x, s.y, ti) === '3-Point').length;
+                const leaders = getTeamLeaders(ti);
+                return { team, pts, makes, att, fgPct, twoAtt, twoMakes, ftAtt, ftMakes, threeAtt, threeMakes, leaders };
+            });
+
+            // Heatmap snapshot
+            const heatImg = heatCanvas.toDataURL('image/png');
+
+            const medalEmoji = ['🥇', '🥈'];
+
+            function leaderRows(leaders, team) {
+                if (!leaders.length) return '<tr><td colspan="4" style="color:#888;font-style:italic;">No data</td></tr>';
+                return leaders.map((l, idx) => {
+                    const player = team.players.map(normPlayer).find(p => p.num === l.pid);
+                    const name = player ? (player.name ? `${player.name} (#${l.pid})` : `#${l.pid}`) : `#${l.pid}`;
+                    return `<tr>
+                        <td>${medalEmoji[idx] || ''}</td>
+                        <td>${name}</td>
+                        <td>${l.pts} pts</td>
+                        <td>${l.makes}/${l.att} (${l.pct}%)</td>
+                    </tr>`;
+                }).join('');
+            }
+
+            const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>${title}</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #fff; color: #111; padding: 32px; font-size: 13px; }
+  h1 { font-size: 24px; font-weight: 900; letter-spacing: -.5px; margin-bottom: 4px; }
+  .date { color: #666; font-size: 12px; margin-bottom: 24px; }
+  .score-row { display: flex; gap: 0; margin-bottom: 28px; border: 2px solid #111; border-radius: 8px; overflow: hidden; }
+  .score-cell { flex: 1; text-align: center; padding: 16px 8px; }
+  .score-cell + .score-cell { border-left: 2px solid #111; }
+  .score-team { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #555; margin-bottom: 6px; }
+  .score-pts { font-size: 48px; font-weight: 900; line-height: 1; }
+  .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #888; margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
+  .leaders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .leaders-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px; }
+  .leaders-card h3 { font-size: 12px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px; }
+  table { width: 100%; border-collapse: collapse; }
+  td { padding: 4px 6px; vertical-align: middle; }
+  tr + tr td { border-top: 1px solid #f0f0f0; }
+  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
+  .stats-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px; }
+  .stats-card h3 { font-size: 12px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px; }
+  .stat-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; border-bottom: 1px solid #f0f0f0; }
+  .stat-row:last-child { border-bottom: none; }
+  .stat-label { color: #666; }
+  .stat-val { font-weight: 700; }
+  .heatmap-section { margin-bottom: 8px; }
+  .heatmap-section img { width: 100%; border: 1px solid #ddd; border-radius: 6px; display: block; }
+  @media print {
+    body { padding: 16px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .score-pts { color: #111 !important; }
+    .no-print { display: none; }
+  }
+</style>
+</head>
+<body>
+<h1>${title}</h1>
+<div class="date">${dateStr}</div>
+
+<div class="section-title">Final Score</div>
+<div class="score-row">
+  ${teamStats.map(ts => `
+  <div class="score-cell">
+    <div class="score-team" style="color:${ts.team.color};">${ts.team.name}</div>
+    <div class="score-pts">${ts.pts}</div>
+  </div>`).join('')}
+</div>
+
+<div class="section-title">Team Leaders</div>
+<div class="leaders-grid">
+  ${teamStats.map(ts => `
+  <div class="leaders-card">
+    <h3 style="color:${ts.team.color};">${ts.team.name}</h3>
+    <table>${leaderRows(ts.leaders, ts.team)}</table>
+  </div>`).join('')}
+</div>
+
+<div class="section-title">Team Stats</div>
+<div class="stats-grid">
+  ${teamStats.map(ts => `
+  <div class="stats-card">
+    <h3 style="color:${ts.team.color};">${ts.team.name}</h3>
+    <div class="stat-row"><span class="stat-label">Points</span><span class="stat-val">${ts.pts}</span></div>
+    <div class="stat-row"><span class="stat-label">FG</span><span class="stat-val">${ts.twoMakes}/${ts.twoAtt} (${ts.att > 0 ? Math.round((ts.twoMakes / ts.twoAtt || 0) * 100) : 0}%)</span></div>
+    <div class="stat-row"><span class="stat-label">3-Point</span><span class="stat-val">${ts.threeMakes}/${ts.threeAtt} (${ts.threeAtt > 0 ? Math.round((ts.threeMakes / ts.threeAtt) * 100) : 0}%)</span></div>
+    <div class="stat-row"><span class="stat-label">Free Throws</span><span class="stat-val">${ts.ftMakes}/${ts.ftAtt} (${ts.ftAtt > 0 ? Math.round((ts.ftMakes / ts.ftAtt) * 100) : 0}%)</span></div>
+    <div class="stat-row"><span class="stat-label">Overall FG%</span><span class="stat-val">${ts.fgPct}%</span></div>
+  </div>`).join('')}
+</div>
+
+<div class="section-title">Shot Heatmap</div>
+<div class="heatmap-section">
+  <img src="${heatImg}" alt="Shot Heatmap">
+</div>
+
+<script>
+  window.onload = function() { window.print(); };
+<\/script>
+</body>
+</html>`;
+
+            const win = window.open('', '_blank');
+            if (!win) { showToast('Allow pop-ups to generate the PDF'); return; }
+            win.document.write(html);
+            win.document.close();
         }
 
         function buildSetupUI() {

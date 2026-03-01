@@ -1103,6 +1103,36 @@
             opacity: 0;
             transform: translateY(6px);
         }
+
+        /* ── UNDO FLOAT ── */
+        #undo-float {
+            position: fixed;
+            bottom: 72px;
+            left: 50%;
+            transform: translateX(-50%) translateY(8px);
+            background: rgba(15, 25, 35, 0.95);
+            border: 1.5px solid var(--color-miss);
+            color: var(--color-miss);
+            font-size: 11px;
+            font-weight: 900;
+            letter-spacing: .1em;
+            text-transform: uppercase;
+            padding: 6px 18px;
+            border-radius: var(--radius-full);
+            cursor: pointer;
+            z-index: 85;
+            opacity: 0;
+            pointer-events: none;
+            transition: opacity .2s ease, transform .2s ease;
+            font-family: inherit;
+            white-space: nowrap;
+        }
+
+        #undo-float.visible {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+            pointer-events: auto;
+        }
     </style>
 </head>
 
@@ -1195,10 +1225,15 @@
 
         <!-- Center: Score -->
         <div id="scoreDisplay"
-            style="display:flex;align-items:center;gap:var(--sp-2);font-size:20px;font-weight:900;letter-spacing:.04em;flex:1;justify-content:center;pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums;">
-            <span id="scoreHome" style="color:#3b82f6;">0</span>
-            <span style="color:var(--border-medium);font-size:.8em;">—</span>
-            <span id="scoreAway" style="color:#f97316;">0</span>
+            style="display:flex;align-items:center;gap:6px;flex:1;justify-content:center;pointer-events:none;white-space:nowrap;font-variant-numeric:tabular-nums;">
+            <span id="scoreHomeName" style="font-size:clamp(8px,1.4vw,11px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#3b82f6;max-width:60px;overflow:hidden;text-overflow:ellipsis;"></span>
+            <span id="scoreHome" style="font-size:clamp(18px,3vw,24px);font-weight:900;color:#3b82f6;">0</span>
+            <div style="display:flex;flex-direction:column;align-items:center;gap:1px;">
+                <span id="quarterBadge" style="font-size:9px;font-weight:900;text-transform:uppercase;letter-spacing:.08em;color:var(--text-muted);line-height:1;">Q1</span>
+                <span style="color:var(--border-medium);font-size:14px;font-weight:900;line-height:1;">—</span>
+            </div>
+            <span id="scoreAway" style="font-size:clamp(18px,3vw,24px);font-weight:900;color:#f97316;">0</span>
+            <span id="scoreAwayName" style="font-size:clamp(8px,1.4vw,11px);font-weight:900;text-transform:uppercase;letter-spacing:.06em;color:#f97316;max-width:60px;overflow:hidden;text-overflow:ellipsis;"></span>
         </div>
 
         <!-- Right: Menu Button Only -->
@@ -1889,14 +1924,15 @@
 
         // Initialize pregame screen
         function initPreGame() {
-            const hasPlayers = teams.some(t => t.players.length > 0);
+            const hasPlayers = teams.length > 0 && teams.every(t => t.players.length > 0);
             const gameInProgress = shots.length > 0 || clockEvents.length > 0;
-            if (gameInProgress) {
-                // Game already started, skip pre-game
+            if (gameInProgress && hasPlayers) {
+                // Game already started with a valid roster, skip pre-game
                 document.getElementById('preGameScreen').classList.add('hidden');
                 return;
             }
-            // Show pregame screen at step 0
+            // Show pregame screen at step 0 (setup)
+            document.getElementById('preGameScreen').classList.remove('hidden');
             showPgStep(0);
             buildPgSetupUI();
         }
@@ -2108,6 +2144,10 @@
 
             const homeEl = document.getElementById('scoreHome');
             const awayEl = document.getElementById('scoreAway');
+            const homeNameEl = document.getElementById('scoreHomeName');
+            const awayNameEl = document.getElementById('scoreAwayName');
+            const quarterEl = document.getElementById('quarterBadge');
+
             if (homeEl) {
                 homeEl.textContent = pts[0] ?? 0;
                 homeEl.style.color = teams[0]?.color || '#3b82f6';
@@ -2115,6 +2155,17 @@
             if (awayEl) {
                 awayEl.textContent = pts[1] ?? 0;
                 awayEl.style.color = teams[1]?.color || '#f97316';
+            }
+            if (homeNameEl) {
+                homeNameEl.textContent = teams[0]?.name || 'HOME';
+                homeNameEl.style.color = teams[0]?.color || '#3b82f6';
+            }
+            if (awayNameEl) {
+                awayNameEl.textContent = teams[1]?.name || 'AWAY';
+                awayNameEl.style.color = teams[1]?.color || '#f97316';
+            }
+            if (quarterEl) {
+                quarterEl.textContent = currentQuarter === 0 ? 'ALL' : `Q${currentQuarter}`;
             }
         }
 
@@ -2684,6 +2735,7 @@
             if (heatOn) heatOn = false;
             haptic(make ? 'make' : 'miss');
             showFeedUpdate(shot);
+            showUndoFloat();
             closeShot();
             renderAll();
         }
@@ -2698,6 +2750,7 @@
             if (heatOn) heatOn = false;
             haptic(make ? 'make' : 'miss');
             showFeedUpdate(shot);
+            showUndoFloat();
             closeShot();
             renderAll();
         }
@@ -2711,9 +2764,17 @@
         // SETUP MODAL
         // ══════════════════════════════════
         const openSetupModal = () => {
+            document.getElementById('menuDropdown').style.display = 'none';
+            // If no roster exists yet, send user back to the pre-game setup wizard
+            const hasPlayers = teams.every(t => t.players.length > 0);
+            if (!hasPlayers) {
+                document.getElementById('preGameScreen').classList.remove('hidden');
+                showPgStep(0);
+                buildPgSetupUI();
+                return;
+            }
             buildSetupUI();
             setupModal.classList.add('open');
-            document.getElementById('menuDropdown').style.display = 'none'; // Close menu
         };
         // Support both old button ID and new menu button ID
         const btnSetupOld = document.getElementById('btnSetup');
@@ -3052,12 +3113,11 @@
                     entriesContainer.appendChild(row);
                 };
 
-                // Live color preview on color input
+                // Live color preview on color input — update team name text input border
                 sec.querySelector(`#tc_${i}`).addEventListener('input', e => {
                     const colorVal = e.target.value;
-                    const badge = sec.querySelector('span');
-                    badge.style.color = colorVal;
-                    badge.style.borderColor = colorVal;
+                    const nameInput = sec.querySelector(`#tn_${i}`);
+                    if (nameInput) nameInput.style.borderColor = colorVal;
                 });
                 teamSetupList.appendChild(sec);
             });
@@ -3229,6 +3289,21 @@
         if (btnUndoOld) btnUndoOld.onclick = doUndo;
         const btnUndoMenu = document.getElementById('btnUndoMenu');
         if (btnUndoMenu) btnUndoMenu.onclick = doUndo;
+
+        // Undo float button
+        let undoFloatTimer = null;
+        const undoFloat = document.getElementById('undo-float');
+        undoFloat.onclick = () => {
+            doUndo();
+            clearTimeout(undoFloatTimer);
+            undoFloat.classList.remove('visible');
+        };
+
+        function showUndoFloat() {
+            clearTimeout(undoFloatTimer);
+            undoFloat.classList.add('visible');
+            undoFloatTimer = setTimeout(() => undoFloat.classList.remove('visible'), 5000);
+        }
 
         // ══════════════════════════════════
         // EDIT MODE
@@ -3685,6 +3760,7 @@
     </script>
 
     <div id="shot-feed"></div>
+    <button id="undo-float">↩ Undo Last</button>
 </body>
 
 </html>

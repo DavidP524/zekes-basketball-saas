@@ -3149,116 +3149,323 @@
             const title = gameName || 'Game Summary';
             const dateStr = new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
 
-            // Compute team totals
-            const teamStats = teams.map((team, ti) => {
-                const ts = shots.filter(s => s.teamIdx === ti);
-                const pts = ts.filter(s => s.make).reduce((a, s) => a + shotPoints(s), 0);
-                const makes = ts.filter(s => s.make).length;
-                const att = ts.length;
-                const fgPct = att > 0 ? Math.round((makes / att) * 100) : 0;
-                const twoAtt = ts.filter(s => !s.ft).length;
-                const twoMakes = ts.filter(s => !s.ft && s.make).length;
-                const ftAtt = ts.filter(s => s.ft).length;
-                const ftMakes = ts.filter(s => s.ft && s.make).length;
-                const threeAtt = ts.filter(s => !s.ft && classifyZone(s.x, s.y, ti) === '3-Point').length;
-                const threeMakes = ts.filter(s => !s.ft && s.make && classifyZone(s.x, s.y, ti) === '3-Point').length;
-                const leaders = getTeamLeaders(ti);
-                return { team, pts, makes, att, fgPct, twoAtt, twoMakes, ftAtt, ftMakes, threeAtt, threeMakes, leaders };
-            });
-
-            // Ensure heatmap canvas is populated before capture
-            const prevHeatOn = heatOn;
-            heatOn = true;
-            renderShots();
-            heatOn = prevHeatOn;
-
-            // Build composite canvas: court lines + heatmap overlay
-            // Court SVG viewBox is 940×500; we render at a fixed export size.
+            // ── Canvas court-drawing constants (SVG viewBox 940×500) ──
             const EW = 940, EH = 500;
-            const offscreen = document.createElement('canvas');
-            offscreen.width = EW;
-            offscreen.height = EH;
-            const oc = offscreen.getContext('2d');
+            const L3ang = Math.atan2(205, 120); // 3pt corner angle ≈ 59.7°
 
-            // 1. Floor background
-            oc.fillStyle = '#15222f';
-            oc.fillRect(0, 0, EW, EH);
-
-            // 2. Court lines — mirrored from the SVG markup
-            oc.strokeStyle = 'rgba(184,206,236,0.80)';
-            oc.fillStyle = 'none';
-            oc.lineWidth = 2.5;
-
-            function courtLine(x1, y1, x2, y2) { oc.beginPath(); oc.moveTo(x1,y1); oc.lineTo(x2,y2); oc.stroke(); }
-            function courtRect(x, y, w, h, lw) { oc.lineWidth = lw || 2.5; oc.strokeRect(x,y,w,h); oc.lineWidth = 2.5; }
-            function courtArc(cx, cy, rx, ry, startDeg, endDeg, ccw, dashed) {
-                if (dashed) oc.setLineDash([7,5]); else oc.setLineDash([]);
-                oc.beginPath();
-                oc.ellipse(cx, cy, rx, ry, 0, startDeg * Math.PI/180, endDeg * Math.PI/180, ccw);
-                oc.stroke();
-                oc.setLineDash([]);
+            // Draw court lines onto any 2D context sized EW×EH
+            function drawCourt(oc) {
+                const LINE = 'rgba(184,206,236,0.80)';
+                oc.strokeStyle = LINE;
+                oc.lineWidth = 2.5;
+                oc.lineJoin = 'round';
+                oc.lineCap  = 'round';
+                function cl(x1,y1,x2,y2) { oc.beginPath(); oc.moveTo(x1,y1); oc.lineTo(x2,y2); oc.stroke(); }
+                function ca(cx,cy,r,a0,a1,ccw) { oc.beginPath(); oc.arc(cx,cy,r,a0,a1,ccw); oc.stroke(); }
+                function caD(cx,cy,r,a0,a1,ccw) {
+                    oc.setLineDash([7,5]); oc.beginPath(); oc.arc(cx,cy,r,a0,a1,ccw); oc.stroke(); oc.setLineDash([]);
+                }
+                // Floor
+                oc.fillStyle = '#15222f'; oc.fillRect(0,0,EW,EH);
+                oc.strokeStyle = LINE;
+                // Boundary
+                oc.lineWidth = 5; oc.strokeRect(2,2,936,496); oc.lineWidth = 2.5;
+                // Half-court
+                cl(470,2,470,498);
+                ca(470,250,20,0,Math.PI*2,false);
+                ca(470,250,60,0,Math.PI*2,false);
+                // LEFT paint
+                oc.strokeRect(2,170,190,160);
+                oc.strokeRect(2,190,190,120);
+                caD(190,250,60,Math.PI/2,-Math.PI/2,true);
+                ca(190,250,60,-Math.PI/2,Math.PI/2,false);
+                cl(2,45,174,45); cl(2,455,174,455);
+                ca(54,250,237.5,-L3ang,L3ang,false);
+                oc.lineWidth = 5; cl(42,218,42,282); oc.lineWidth = 2.5;
+                oc.lineWidth = 2; ca(54,250,8.5,0,Math.PI*2,false); oc.lineWidth = 2.5;
+                // RIGHT paint
+                oc.strokeRect(748,170,190,160);
+                oc.strokeRect(748,190,190,120);
+                caD(750,250,60,-Math.PI/2,Math.PI/2,false);
+                ca(750,250,60,Math.PI/2,-Math.PI/2,true);
+                cl(938,45,766,45); cl(938,455,766,455);
+                ca(886,250,237.5,Math.PI-L3ang,Math.PI+L3ang,false);
+                oc.lineWidth = 5; cl(898,218,898,282); oc.lineWidth = 2.5;
+                oc.lineWidth = 2; ca(886,250,8.5,0,Math.PI*2,false); oc.lineWidth = 2.5;
             }
 
-            // Outer boundary
-            oc.lineWidth = 5; oc.strokeRect(2,2,936,496); oc.lineWidth = 2.5;
-            // Half-court line
-            courtLine(470,2,470,498);
-            // Center circles
-            courtArc(470,250,20,20,0,360,false);
-            courtArc(470,250,60,60,0,360,false);
+            // Build a court+numbered-dots canvas for a given shot list; return data URL
+            function buildShotMap(shotList) {
+                const c = document.createElement('canvas');
+                c.width = EW; c.height = EH;
+                const oc = c.getContext('2d');
+                drawCourt(oc);
 
-            // LEFT paint
-            oc.strokeRect(2,170,190,160);
-            oc.strokeRect(2,190,190,120);
-            courtArc(190,250,60,60,-90,90,false,true);  // back of paint (dashed)
-            courtArc(190,250,60,60,-90,90,false,false); // solid arc (front)
-            // Left 3-point line
-            courtLine(2,45,174,45);
-            courtLine(2,455,174,455);
-            courtArc(174,250,237.5,237.5,-79.5,79.5,false);
-            // Left FT backboard
-            oc.lineWidth = 5; courtLine(42,218,42,282); oc.lineWidth = 2.5;
-            // Left basket
-            oc.beginPath(); oc.arc(54,250,8.5,0,Math.PI*2); oc.strokeStyle='#b8ceec'; oc.lineWidth=2; oc.stroke(); oc.lineWidth=2.5;
+                const DOT_R    = 7;   // dot radius in canvas px
+                const R_CLUSTER = 10; // shots within this distance (px) are considered clustered
 
-            // RIGHT paint
-            oc.strokeStyle = 'rgba(184,206,236,0.80)';
-            oc.strokeRect(748,170,190,160);
-            oc.strokeRect(748,190,190,120);
-            courtArc(750,250,60,60,90,270,false,true);
-            courtArc(750,250,60,60,90,270,false,false);
-            // Right 3-point line
-            courtLine(938,45,766,45);
-            courtLine(938,455,766,455);
-            courtArc(766,250,237.5,237.5,100.5,259.5,false);
-            // Right FT backboard
-            oc.lineWidth = 5; courtLine(898,218,898,282); oc.lineWidth = 2.5;
-            // Right basket
-            oc.beginPath(); oc.arc(886,250,8.5,0,Math.PI*2); oc.stroke();
+                // Resolve draw positions: shots that land within R_CLUSTER of each other
+                // are fanned out in a ring so every dot stays individually legible.
+                const positions = shotList.map(s => ({
+                    shot: s,
+                    ox: (s.x / 100) * EW,   // original x
+                    oy: (s.y / 100) * EH,   // original y
+                    dx: (s.x / 100) * EW,   // draw x (may be offset)
+                    dy: (s.y / 100) * EH    // draw y (may be offset)
+                }));
 
-            // 3. Heatmap overlay — scale heatCanvas onto the offscreen canvas
-            if (heatCanvas.width > 0 && heatCanvas.height > 0) {
-                oc.drawImage(heatCanvas, 0, 0, EW, EH);
+                // Group by proximity
+                const assigned = new Array(positions.length).fill(false);
+                for (let i = 0; i < positions.length; i++) {
+                    if (assigned[i]) continue;
+                    const cluster = [i];
+                    for (let j = i + 1; j < positions.length; j++) {
+                        if (assigned[j]) continue;
+                        const dx = positions[j].ox - positions[i].ox;
+                        const dy = positions[j].oy - positions[i].oy;
+                        if (Math.sqrt(dx*dx + dy*dy) < R_CLUSTER) {
+                            cluster.push(j);
+                            assigned[j] = true;
+                        }
+                    }
+                    assigned[i] = true;
+                    if (cluster.length === 1) continue; // solo shot, no offset needed
+                    // Fan cluster members around a circle whose radius keeps dots just touching
+                    const fanR = DOT_R * 1.2 * cluster.length / Math.PI;
+                    const step = (Math.PI * 2) / cluster.length;
+                    cluster.forEach((idx, k) => {
+                        positions[idx].dx = positions[i].ox + fanR * Math.cos(step * k - Math.PI/2);
+                        positions[idx].dy = positions[i].oy + fanR * Math.sin(step * k - Math.PI/2);
+                    });
+                }
+
+                // Draw hollow markers — stroke ring only, no fill, number centred inside
+                oc.textAlign    = 'center';
+                oc.textBaseline = 'middle';
+                oc.font = 'bold 9px Arial, sans-serif';
+                positions.forEach(({ shot: s, dx, dy }) => {
+                    // Hollow circle
+                    oc.beginPath();
+                    oc.arc(dx, dy, DOT_R, 0, Math.PI * 2);
+                    oc.strokeStyle = s.make ? '#10b981' : '#ef4444';
+                    oc.lineWidth   = 2.5;
+                    oc.stroke();
+                    // Jersey number in white
+                    oc.fillStyle = '#fff';
+                    oc.fillText(String(s.playerId), dx, dy);
+                });
+                return c.toDataURL('image/png', 1.0);
             }
 
-            // Heatmap snapshot — max quality PNG from composite canvas
-            const heatImg = offscreen.toDataURL('image/png', 1.0);
+            // ── Per-player stats for a given shot slice ──
+            function playerStatsFor(shotList, teamIdx) {
+                const team = teams[teamIdx];
+                if (!team) return [];
+                const pids = [...new Set(shotList.filter(s => s.teamIdx === teamIdx).map(s => s.playerId))];
+                return pids.map(pid => {
+                    const ps   = shotList.filter(s => s.teamIdx === teamIdx && s.playerId === pid);
+                    const makes = ps.filter(s => s.make && !s.ft).length;
+                    const att   = ps.filter(s => !s.ft).length;
+                    const ftM   = ps.filter(s => s.ft && s.make).length;
+                    const ftA   = ps.filter(s => s.ft).length;
+                    const threeM = ps.filter(s => !s.ft && s.make && classifyZone(s.x,s.y,teamIdx) === '3-Point').length;
+                    const threeA = ps.filter(s => !s.ft && classifyZone(s.x,s.y,teamIdx) === '3-Point').length;
+                    const pts   = ps.filter(s => s.make).reduce((a,s) => a + shotPoints(s), 0);
+                    const pct   = att > 0 ? Math.round((makes/att)*100) : 0;
+                    const player = team.players.map(normPlayer).find(p => p.num === pid);
+                    const name   = player ? (player.name || '') : '';
+                    return { pid, name, pts, makes, att, pct, threeM, threeA, ftM, ftA };
+                }).sort((a,b) => b.pts - a.pts || b.pct - a.pct);
+            }
 
-            const medalEmoji = ['🥇', '🥈'];
+            // ── HTML helpers ──
+            function secTitle(txt) {
+                return `<div class="section-title">${txt}</div>`;
+            }
 
-            function leaderRows(leaders, team) {
-                if (!leaders.length) return '<tr><td colspan="4" style="color:#888;font-style:italic;">No data</td></tr>';
-                return leaders.map((l, idx) => {
-                    const player = team.players.map(normPlayer).find(p => p.num === l.pid);
-                    const name = player ? (player.name ? `${player.name} (#${l.pid})` : `#${l.pid}`) : `#${l.pid}`;
-                    return `<tr>
-                        <td>${medalEmoji[idx] || ''}</td>
-                        <td>${name}</td>
-                        <td>${l.pts} pts</td>
-                        <td>${l.makes}/${l.att} (${l.pct}%)</td>
-                    </tr>`;
+            function teamBoxRow(team, shotList, ti) {
+                const ts     = shotList.filter(s => s.teamIdx === ti);
+                const pts    = ts.filter(s => s.make).reduce((a,s) => a + shotPoints(s), 0);
+                const fgM    = ts.filter(s => s.make && !s.ft).length;
+                const fgA    = ts.filter(s => !s.ft).length;
+                const threeM = ts.filter(s => !s.ft && s.make && classifyZone(s.x,s.y,ti) === '3-Point').length;
+                const threeA = ts.filter(s => !s.ft && classifyZone(s.x,s.y,ti) === '3-Point').length;
+                const fgPct  = fgA > 0 ? Math.round((fgM/fgA)*100) : 0;
+                return `<tr>
+                  <td style="font-weight:700;color:${team.color};">${team.name}</td>
+                  <td style="font-weight:900;font-size:16px;">${pts}</td>
+                  <td>${fgM}/${fgA} (${fgPct}%)</td>
+                  <td>${threeM}/${threeA}</td>
+                </tr>`;
+            }
+
+            function playerTable(rows) {
+                if (!rows.length) return '<p style="color:#999;font-size:11px;font-style:italic;margin:4px 0 12px;">No shots recorded.</p>';
+                return `<table class="ptable">
+                  <thead><tr><th>#</th><th>Name</th><th>PTS</th><th>FG</th><th>FG%</th><th>3PT</th><th>FT</th></tr></thead>
+                  <tbody>${rows.map(r => `<tr>
+                    <td>${r.pid}</td>
+                    <td>${r.name}</td>
+                    <td style="font-weight:700;">${r.pts}</td>
+                    <td>${r.makes}/${r.att}</td>
+                    <td>${r.pct}%</td>
+                    <td>${r.threeM}/${r.threeA}</td>
+                    <td>${r.ftM}/${r.ftA}</td>
+                  </tr>`).join('')}</tbody>
+                </table>`;
+            }
+
+            function masterPlayerTable(rows) {
+                if (!rows.length) return '';
+                return `<table class="ptable">
+                  <thead><tr><th>#</th><th>Name</th><th>MIN</th><th>PTS</th><th>FG</th><th>FG%</th><th>3PT</th><th>FT</th></tr></thead>
+                  <tbody>${rows.map(r => `<tr>
+                    <td>${r.pid}</td>
+                    <td>${r.name}</td>
+                    <td>${r.minStr}</td>
+                    <td style="font-weight:700;">${r.pts}</td>
+                    <td>${r.makes}/${r.att}</td>
+                    <td>${r.pct}%</td>
+                    <td>${r.threeM}/${r.threeA}</td>
+                    <td>${r.ftM}/${r.ftA}</td>
+                  </tr>`).join('')}</tbody>
+                </table>`;
+            }
+
+            // ── Quarterly sections ──
+            let quarterSections = '';
+            for (let q = 1; q <= 4; q++) {
+                const qShots = shots.filter(s => s.quarter === q);
+                if (!qShots.length) continue; // skip empty quarters
+
+                const mapImg  = buildShotMap(qShots);
+                const qTeamRows = teams.map((team, ti) => teamBoxRow(team, qShots, ti)).join('');
+                const qPlayerBlocks = teams.map((team, ti) => {
+                    const rows = playerStatsFor(qShots, ti);
+                    return `<div class="team-block">
+                      <div class="team-label" style="color:${team.color};">${team.name}</div>
+                      ${playerTable(rows)}
+                    </div>`;
                 }).join('');
+
+                quarterSections += `
+<div class="page-section">
+  ${secTitle(`Quarter ${q} — Box Score`)}
+  <table class="box-table" style="margin-bottom:16px;">
+    <thead><tr><th>Team</th><th>PTS</th><th>FG/FGA</th><th>3PT/3PA</th></tr></thead>
+    <tbody>${qTeamRows}</tbody>
+  </table>
+  ${secTitle(`Quarter ${q} — Player Stats`)}
+  <div class="two-col">${qPlayerBlocks}</div>
+  ${secTitle(`Quarter ${q} — Shot Map`)}
+  <div class="map-wrap"><img src="${mapImg}" alt="Q${q} Shot Map"></div>
+</div>`;
             }
+
+            // ── Master / full-game section ──
+            const allMapImg = buildShotMap(shots);
+            const masterTeamRows = teams.map((team, ti) => teamBoxRow(team, shots, ti)).join('');
+
+            // Full-roster master table with minutes
+            const masterPlayerBlocks = teams.map((team, ti) => {
+                const pids = [...new Set([
+                    ...team.players.map(p => normPlayer(p).num),
+                    ...shots.filter(s => s.teamIdx === ti).map(s => s.playerId)
+                ])];
+                const rows = pids.map(pid => {
+                    const base   = playerStatsFor(shots, ti).find(r => r.pid === pid);
+                    const mins   = calcPlayerMinutes(ti, pid);
+                    const minStr = formatMinSec(mins.total);
+                    if (!base) {
+                        const player = team.players.map(normPlayer).find(p => p.num === pid);
+                        return { pid, name: player ? (player.name || '') : '', minStr, pts:0, makes:0, att:0, pct:0, threeM:0, threeA:0, ftM:0, ftA:0 };
+                    }
+                    return { ...base, minStr };
+                }).sort((a,b) => b.pts - a.pts || b.pct - a.pct);
+                return `<div class="team-block">
+                  <div class="team-label" style="color:${team.color};">${team.name}</div>
+                  ${masterPlayerTable(rows)}
+                </div>`;
+            }).join('');
+
+            // ── Architect's Performance Summary ──
+            // 1. Efficiency King — best FG% with min 3 field-goal attempts (all players, both teams)
+            let effKingHtml = '<span class="ins-val">N/A (no player with 3+ attempts)</span>';
+            {
+                const fieldShots = shots.filter(s => !s.ft);
+                const allPids = [...new Set(fieldShots.map(s => `${s.teamIdx}:${s.playerId}`))];
+                let best = null;
+                allPids.forEach(key => {
+                    const [ti, pid] = key.split(':');
+                    const tiN = +ti;
+                    const ps  = fieldShots.filter(s => s.teamIdx === tiN && s.playerId === pid);
+                    if (ps.length < 3) return;
+                    const pct = Math.round((ps.filter(s => s.make).length / ps.length) * 100);
+                    if (!best || pct > best.pct || (pct === best.pct && ps.length > best.att)) {
+                        const player = teams[tiN] ? teams[tiN].players.map(normPlayer).find(p => p.num === pid) : null;
+                        const label  = (player && player.name) ? `${player.name} (#${pid}, ${teams[tiN].name})` : `#${pid} (${teams[tiN] ? teams[tiN].name : ''})`;
+                        best = { label, pct, att: ps.length, color: teams[tiN] ? teams[tiN].color : '#111' };
+                    }
+                });
+                if (best) effKingHtml = `<span class="ins-val" style="color:${best.color};">${best.label}</span> — <strong>${best.pct}% FG</strong> (${best.att} att)`;
+            }
+
+            // 2. Zone Dominance (most makes by zone across both teams)
+            let zoneDomHtml = '<span class="ins-val">N/A</span>';
+            {
+                const fieldMakes = shots.filter(s => !s.ft && s.make);
+                const zc = { 'Paint': 0, 'Mid-Range': 0, '3-Point': 0 };
+                fieldMakes.forEach(s => { const z = classifyZone(s.x, s.y, s.teamIdx); if (zc[z] !== undefined) zc[z]++; });
+                const top = Object.entries(zc).sort((a,b) => b[1]-a[1])[0];
+                if (top[1] > 0) zoneDomHtml = `<strong>${top[0]}</strong> — ${top[1]} make${top[1]!==1?'s':''}`;
+            }
+
+            // 3. Zone Vulnerability (most misses by zone — poor shot selection / defensive pressure)
+            let zoneVulnHtml = '<span class="ins-val">N/A</span>';
+            {
+                const fieldMisses = shots.filter(s => !s.ft && !s.make);
+                const zc = { 'Paint': 0, 'Mid-Range': 0, '3-Point': 0 };
+                fieldMisses.forEach(s => { const z = classifyZone(s.x, s.y, s.teamIdx); if (zc[z] !== undefined) zc[z]++; });
+                const top = Object.entries(zc).sort((a,b) => b[1]-a[1])[0];
+                if (top[1] > 0) zoneVulnHtml = `<strong>${top[0]}</strong> — ${top[1]} miss${top[1]!==1?'ses':''}`;
+            }
+
+            // 4. Momentum Shift — quarter with highest combined score
+            let momentumHtml = '<span class="ins-val">N/A</span>';
+            {
+                let bestQ = null, bestPts = -1;
+                for (let q = 1; q <= 4; q++) {
+                    const qPts = shots.filter(s => s.quarter === q && s.make).reduce((a,s) => a + shotPoints(s), 0);
+                    if (qPts > bestPts) { bestPts = qPts; bestQ = q; }
+                }
+                if (bestQ !== null && bestPts > 0) momentumHtml = `<strong>Q${bestQ}</strong> — ${bestPts} combined point${bestPts!==1?'s':''}`;
+            }
+
+            const summaryHtml = `
+<div class="ins-grid">
+  <div class="ins-card">
+    <div class="ins-label">Efficiency King</div>
+    <div class="ins-body">${effKingHtml}</div>
+  </div>
+  <div class="ins-card">
+    <div class="ins-label">Zone Dominance (Makes)</div>
+    <div class="ins-body">${zoneDomHtml}</div>
+  </div>
+  <div class="ins-card">
+    <div class="ins-label">Zone Vulnerability (Misses)</div>
+    <div class="ins-body">${zoneVulnHtml}</div>
+  </div>
+  <div class="ins-card">
+    <div class="ins-label">Momentum Shift</div>
+    <div class="ins-body">${momentumHtml}</div>
+  </div>
+</div>`;
+
+            // Final score summary — inline team color on both name and score pts for full branding
+            const finalScoreHtml = teams.map((team, ti) => {
+                const tpts = shots.filter(s => s.teamIdx === ti && s.make).reduce((a,s) => a + shotPoints(s), 0);
+                return `<div class="score-cell"><div class="score-team" style="color:${team.color};">${team.name}</div><div class="score-pts" style="color:${team.color};">${tpts}</div></div>`;
+            }).join('');
 
             const html = `<!DOCTYPE html>
 <html>
@@ -3266,89 +3473,78 @@
 <meta charset="utf-8">
 <title>${title}</title>
 <style>
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  body { font-family: 'Helvetica Neue', Arial, sans-serif; background: #fff; color: #111; padding: 32px; font-size: 13px; }
-  h1 { font-size: 24px; font-weight: 900; letter-spacing: -.5px; margin-bottom: 4px; }
-  .date { color: #666; font-size: 12px; margin-bottom: 24px; }
-  .score-row { display: flex; gap: 0; margin-bottom: 28px; border: 2px solid #111; border-radius: 8px; overflow: hidden; }
-  .score-cell { flex: 1; text-align: center; padding: 16px 8px; }
-  .score-cell + .score-cell { border-left: 2px solid #111; }
-  .score-team { font-size: 13px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: #555; margin-bottom: 6px; }
-  .score-pts { font-size: 48px; font-weight: 900; line-height: 1; }
-  .section-title { font-size: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .1em; color: #888; margin-bottom: 8px; border-bottom: 1px solid #ddd; padding-bottom: 4px; }
-  .leaders-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
-  .leaders-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px; }
-  .leaders-card h3 { font-size: 12px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px; }
-  table { width: 100%; border-collapse: collapse; }
-  td { padding: 4px 6px; vertical-align: middle; }
-  tr + tr td { border-top: 1px solid #f0f0f0; }
-  .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-bottom: 28px; }
-  .stats-card { border: 1px solid #ddd; border-radius: 6px; padding: 12px; }
-  .stats-card h3 { font-size: 12px; font-weight: 900; text-transform: uppercase; margin-bottom: 8px; }
-  .stat-row { display: flex; justify-content: space-between; padding: 3px 0; font-size: 12px; border-bottom: 1px solid #f0f0f0; }
-  .stat-row:last-child { border-bottom: none; }
-  .stat-label { color: #666; }
-  .stat-val { font-weight: 700; }
-  .heatmap-section { margin-bottom: 8px; }
-  .heatmap-section img { width: 100%; border: 1px solid #ddd; border-radius: 6px; display: block; }
+  * { box-sizing:border-box; margin:0; padding:0; }
+  body { font-family:'Helvetica Neue',Arial,sans-serif; background:#fff; color:#111; padding:28px 32px; font-size:12px; }
+  h1  { font-size:22px; font-weight:900; letter-spacing:-.5px; margin-bottom:3px; }
+  .date { color:#666; font-size:11px; margin-bottom:20px; }
+  .section-title { font-size:9px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#888;
+                   border-bottom:1px solid #ddd; padding-bottom:3px; margin-bottom:8px; margin-top:14px; }
+  /* Final score banner */
+  .score-row  { display:flex; border:2px solid #111; border-radius:8px; overflow:hidden; margin-bottom:20px; }
+  .score-cell { flex:1; text-align:center; padding:12px 8px; }
+  .score-cell + .score-cell { border-left:2px solid #111; }
+  .score-team { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; margin-bottom:4px; }
+  .score-pts  { font-size:42px; font-weight:900; line-height:1; }
+  /* Box score tables */
+  .box-table  { width:100%; border-collapse:collapse; margin-bottom:14px; }
+  .box-table th, .box-table td { padding:4px 8px; text-align:left; border-bottom:1px solid #eee; }
+  .box-table th { font-size:10px; font-weight:700; text-transform:uppercase; color:#888; }
+  /* Player tables */
+  .ptable     { width:100%; border-collapse:collapse; margin-bottom:10px; font-size:11px; }
+  .ptable th  { font-size:9px; font-weight:700; text-transform:uppercase; color:#888; padding:3px 5px; border-bottom:1px solid #ddd; text-align:left; }
+  .ptable td  { padding:3px 5px; border-bottom:1px solid #f0f0f0; }
+  /* Two-column team layout */
+  .two-col    { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin-bottom:12px; }
+  .team-block { }
+  .team-label { font-size:10px; font-weight:900; text-transform:uppercase; letter-spacing:.06em; margin-bottom:5px; }
+  /* Shot map */
+  .map-wrap   { margin-bottom:10px; }
+  .map-wrap img { width:100%; border:1px solid #ddd; border-radius:4px; display:block; }
+  /* Performance summary cards */
+  .ins-grid  { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:12px; }
+  .ins-card  { border:1px solid #ddd; border-radius:6px; padding:10px 12px; }
+  .ins-label { font-size:8px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:#888; margin-bottom:5px; }
+  .ins-body  { font-size:12px; line-height:1.4; }
+  .ins-val   { color:#555; }
+  /* Page break between sections */
+  .page-section { break-after:page; }
+  .page-section:last-child { break-after:auto; }
   @media print {
-    body { padding: 16px; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .score-pts { color: #111 !important; }
-    .no-print { display: none; }
+    body { padding:14px 18px; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
   }
 </style>
 </head>
 <body>
+
 <h1>${title}</h1>
 <div class="date">${dateStr}</div>
 
-<div class="section-title">Final Score</div>
-<div class="score-row">
-  ${teamStats.map(ts => `
-  <div class="score-cell">
-    <div class="score-team" style="color:${ts.team.color};">${ts.team.name}</div>
-    <div class="score-pts">${ts.pts}</div>
-  </div>`).join('')}
-</div>
+${secTitle('Final Score')}
+<div class="score-row">${finalScoreHtml}</div>
 
-<div class="section-title">Team Leaders</div>
-<div class="leaders-grid">
-  ${teamStats.map(ts => `
-  <div class="leaders-card">
-    <h3 style="color:${ts.team.color};">${ts.team.name}</h3>
-    <table>${leaderRows(ts.leaders, ts.team)}</table>
-  </div>`).join('')}
-</div>
+${quarterSections}
 
-<div class="section-title">Team Stats</div>
-<div class="stats-grid">
-  ${teamStats.map(ts => `
-  <div class="stats-card">
-    <h3 style="color:${ts.team.color};">${ts.team.name}</h3>
-    <div class="stat-row"><span class="stat-label">Points</span><span class="stat-val">${ts.pts}</span></div>
-    <div class="stat-row"><span class="stat-label">FG</span><span class="stat-val">${ts.twoMakes}/${ts.twoAtt} (${ts.att > 0 ? Math.round((ts.twoMakes / ts.twoAtt || 0) * 100) : 0}%)</span></div>
-    <div class="stat-row"><span class="stat-label">3-Point</span><span class="stat-val">${ts.threeMakes}/${ts.threeAtt} (${ts.threeAtt > 0 ? Math.round((ts.threeMakes / ts.threeAtt) * 100) : 0}%)</span></div>
-    <div class="stat-row"><span class="stat-label">Free Throws</span><span class="stat-val">${ts.ftMakes}/${ts.ftAtt} (${ts.ftAtt > 0 ? Math.round((ts.ftMakes / ts.ftAtt) * 100) : 0}%)</span></div>
-    <div class="stat-row"><span class="stat-label">Overall FG%</span><span class="stat-val">${ts.fgPct}%</span></div>
-  </div>`).join('')}
-</div>
-
-<div class="section-title">Shot Heatmap</div>
-<div class="heatmap-section">
-  <img src="${heatImg}" alt="Shot Heatmap">
+<div class="page-section">
+  ${secTitle('Full Game — Box Score')}
+  <table class="box-table" style="margin-bottom:16px;">
+    <thead><tr><th>Team</th><th>PTS</th><th>FG/FGA</th><th>3PT/3PA</th></tr></thead>
+    <tbody>${masterTeamRows}</tbody>
+  </table>
+  ${secTitle('Full Game — Player Stats (with Minutes)')}
+  <div class="two-col">${masterPlayerBlocks}</div>
+  ${secTitle('Full Game — Shot Map')}
+  <div class="map-wrap"><img src="${allMapImg}" alt="Full Game Shot Map"></div>
+  ${secTitle("Architect's Performance Summary")}
+  ${summaryHtml}
 </div>
 
 <script>
-  // Wait for all images (heatmap) to fully decode before printing
   window.onload = function() {
-    var imgs = document.images;
-    var total = imgs.length;
-    if (total === 0) { window.print(); return; }
-    var loaded = 0;
-    function checkDone() { if (++loaded >= total) window.print(); }
+    var imgs = document.images, total = imgs.length, loaded = 0;
+    if (!total) { window.print(); return; }
+    function done() { if (++loaded >= total) window.print(); }
     for (var i = 0; i < total; i++) {
-      if (imgs[i].complete) { checkDone(); }
-      else { imgs[i].onload = checkDone; imgs[i].onerror = checkDone; }
+      if (imgs[i].complete) done(); else { imgs[i].onload = done; imgs[i].onerror = done; }
     }
   };
 <\/script>

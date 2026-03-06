@@ -11,38 +11,38 @@
     <style>
         :root {
             /* Backgrounds */
-            --bg-base: #0f1923;
-            --bg-surface: #162029;
-            --bg-elevated: #1a2836;
-            --bg-sunken: #0c1219;
-            --bg-court: #15222f;
+            --bg-base: #07090d;
+            --bg-surface: #0f1318;
+            --bg-elevated: #161c24;
+            --bg-sunken: #040608;
+            --bg-court: #111820;
 
             /* Borders */
-            --border-subtle: #1e3045;
-            --border-medium: #2a3f55;
-            --border-strong: #3a5570;
+            --border-subtle: #1c2633;
+            --border-medium: #263545;
+            --border-strong: #334d66;
 
             /* Text */
-            --text-primary: #f0f4f8;
-            --text-secondary: #8fa3b8;
-            --text-muted: #5a7a94;
-            --text-faint: #3a5570;
+            --text-primary: #ffffff;
+            --text-secondary: #94afc8;
+            --text-muted: #5c7a96;
+            --text-faint: #344d63;
 
             /* Accent */
-            --accent: #00b4d8;
-            --accent-hover: #00cfef;
-            --accent-subtle: rgba(0, 180, 216, 0.12);
-            --accent-on: #0f1923;
+            --accent: #38bdf8;
+            --accent-hover: #7dd3fc;
+            --accent-subtle: rgba(56, 189, 248, 0.12);
+            --accent-on: #ffffff;
 
             /* Semantic */
-            --color-make: #34d399;
-            --color-make-bg: rgba(52, 211, 153, 0.10);
-            --color-miss: #f87171;
-            --color-miss-bg: rgba(248, 113, 113, 0.08);
-            --color-fg-pct: #fbbf24;
-            --color-danger: #f87171;
-            --color-ft-make: #60a5fa;
-            --color-ft-miss: #a78bfa;
+            --color-make: #2ecc8f;
+            --color-make-bg: rgba(46, 204, 143, 0.12);
+            --color-miss: #f96060;
+            --color-miss-bg: rgba(249, 96, 96, 0.10);
+            --color-fg-pct: #f5b731;
+            --color-danger: #f96060;
+            --color-ft-make: #4fa8f7;
+            --color-ft-miss: #a47bf5;
 
             /* Spacing (4px grid) */
             --sp-1: 4px;
@@ -797,7 +797,7 @@
         }
 
         .chip.sel {
-            color: var(--bg-base) !important;
+            color: #ffffff !important;
         }
 
         /* quarter chips */
@@ -819,7 +819,7 @@
         .q-chip.sel {
             background: var(--accent);
             border-color: var(--accent);
-            color: var(--accent-on);
+            color: #ffffff;
         }
 
         /* ── MENU ── */
@@ -1328,7 +1328,7 @@
         <button class="q-chip" data-q="4">Q4</button>
         <button class="q-chip" data-q="0">All</button>
         <button id="btnPanelToggle"
-            style="margin-left:auto;opacity:.7;background:transparent;border:1px solid var(--border-subtle);border-radius:var(--radius-full);padding:var(--sp-1) var(--sp-3);font-size:12px;color:var(--text-secondary);cursor:pointer;font-weight:700;letter-spacing:.04em;display:flex;align-items:center;gap:var(--sp-1);font-family:inherit;"
+            style="margin-left:auto;opacity:.7;background:transparent;border:1px solid var(--border-subtle);border-radius:var(--radius-full);padding:var(--sp-1) var(--sp-3);font-size:12px;color:var(--text-secondary);cursor:pointer;font-weight:700;letter-spacing:.04em;display:flex;align-items:center;gap:var(--sp-1);font-family:inherit;transition:color .12s,opacity .12s;"
             title="Toggle stats panels">
             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                 stroke-linecap="round">
@@ -4290,12 +4290,12 @@ ${quarterSections}
                 left.classList.add('open');
                 right.classList.add('open');
                 btn.style.opacity = '1';
-                btn.style.color = 'var(--color-fg-pct)';
+                btn.style.color = 'var(--text-primary)';
             } else {
                 left.classList.remove('open');
                 right.classList.remove('open');
                 btn.style.opacity = '.7';
-                btn.style.color = '';
+                btn.style.color = 'var(--text-secondary)';
             }
             syncCanvas();
             syncPanelTop();

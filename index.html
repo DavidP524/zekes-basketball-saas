@@ -347,9 +347,11 @@
                 padding: var(--sp-1) var(--sp-2);
             }
 
-            /* Ensure court-wrapper doesn't overflow */
+            /* In landscape, drive size from height so wrapper matches SVG exactly */
             .court-wrapper {
-                max-height: calc(100% - 40px);
+                width: auto;
+                height: calc(100% - 40px);
+                max-width: 100%;
             }
 
             /* Side panels: landscape mode — fixed position, correct sides */

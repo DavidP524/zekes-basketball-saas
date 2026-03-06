@@ -101,7 +101,7 @@
             min-height: 0;
         }
 
-        .court-wrapper.edit-mode {
+        .court-wrapper.edit-mode svg.court {
             border: 2px solid var(--color-miss);
             border-radius: 4px;
         }
@@ -350,11 +350,6 @@
             /* Ensure court-wrapper doesn't overflow */
             .court-wrapper {
                 max-height: calc(100% - 40px);
-            }
-
-            .court-wrapper.edit-mode {
-                /* Keep border tight to wrapper */
-                box-sizing: border-box;
             }
 
             /* Side panels: landscape mode — fixed position, correct sides */

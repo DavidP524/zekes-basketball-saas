@@ -3015,9 +3015,18 @@
                     team.players.forEach(p => {
                         const player = normPlayer(p);
                         const pid = player.num;
+                        // Calculate live stats for this player
+                        const ps = shots.filter(s => s.teamIdx === ti && s.playerId === pid);
+                        const makes = ps.filter(s => s.make && !s.ft).length;
+                        const att = ps.filter(s => !s.ft).length;
+                        const pts = ps.filter(s => s.make).reduce((a, s) => a + shotPoints(s), 0);
+                        const pct = att > 0 ? Math.round((makes / att) * 100) : null;
+                        const statLine = pts > 0 || att > 0
+                            ? `${pts}pts · ${makes}/${att}${pct !== null ? ` · ${pct}%` : ''}`
+                            : '—';
                         const btn = document.createElement('button');
                         btn.style.cssText = `padding:8px 4px;border-radius:8px;border:2px solid ${team.color};background:rgba(${hexToRgb(team.color)},.08);color:${team.color};font:900 15px Inter,sans-serif;cursor:pointer;text-align:center;line-height:1.2;touch-action:manipulation;`;
-                        btn.innerHTML = `#${pid}${player.name ? `<div style="font-size:9px;font-weight:600;opacity:.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${player.name}</div>` : ''}`;
+                        btn.innerHTML = `#${pid}${player.name ? `<div style="font-size:9px;font-weight:600;opacity:.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${player.name}</div>` : ''}<div style="font-size:9px;font-weight:700;opacity:.6;margin-top:3px;letter-spacing:.02em;white-space:nowrap;">${statLine}</div>`;
                         btn.onclick = () => showRpOutcome(pid, ti);
                         grid.appendChild(btn);
                     });

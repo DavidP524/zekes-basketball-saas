@@ -1579,6 +1579,8 @@
         <div id="editShotInfo" style="flex:1;font-size:12px;color:var(--text-secondary);line-height:1.4;min-width:0;"></div>
         <button id="editDeleteBtn"
             style="background:var(--color-miss);color:#fff;border:none;border-radius:6px;padding:var(--sp-2) var(--sp-3);font:700 13px 'Inter',sans-serif;cursor:pointer;flex-shrink:0;">Delete</button>
+        <button id="editReassignBtn"
+            style="background:rgba(96,165,250,.12);color:#60a5fa;border:1.5px solid #60a5fa;border-radius:6px;padding:var(--sp-2) var(--sp-3);font:700 13px 'Inter',sans-serif;cursor:pointer;flex-shrink:0;">Change Player</button>
         <button id="editCancelBtn"
             style="background:var(--bg-surface);color:var(--text-secondary);border:1px solid var(--border-subtle);border-radius:6px;padding:var(--sp-2) var(--sp-3);font:600 13px 'Inter',sans-serif;cursor:pointer;flex-shrink:0;">Cancel</button>
         <div id="editMoveRow" style="width:100%;display:flex;gap:6px;align-items:center;margin-top:2px;">
@@ -1587,6 +1589,19 @@
             <button class="move-q-btn" data-q="2">Q2</button>
             <button class="move-q-btn" data-q="3">Q3</button>
             <button class="move-q-btn" data-q="4">Q4</button>
+        </div>
+    </div>
+
+    <!-- ══ REASSIGN PLAYER MODAL ══ -->
+    <div class="overlay" id="reassignModal">
+        <div class="ov-bg" id="reassignBg"></div>
+        <div class="drawer" id="reassignDrawer">
+            <div class="pill"></div>
+            <div class="modal-header">
+                <h3 class="modal-title" style="font-size:16px;">Change Player</h3>
+                <button id="reassignClose" class="modal-close">✕</button>
+            </div>
+            <div id="reassignColumns" style="display:grid;grid-template-columns:1fr 1fr;gap:var(--sp-3);"></div>
         </div>
     </div>
 
@@ -4133,6 +4148,7 @@ ${quarterSections}
         document.getElementById('btnEditModeMenu').onclick = enterEditMode;
 
         function deselectShot() {
+            resetDeleteBtn();
             selectedShotId = null;
             editConfirmBar.style.display = 'none';
             renderShots();
@@ -4158,15 +4174,42 @@ ${quarterSections}
             renderShots();
         }
 
+        let deleteConfirmPending = false;
+        let deleteConfirmTimer = null;
+
+        function resetDeleteBtn() {
+            deleteConfirmPending = false;
+            clearTimeout(deleteConfirmTimer);
+            deleteConfirmTimer = null;
+            editDeleteBtn.textContent = 'Delete';
+            editDeleteBtn.style.background = 'var(--color-miss)';
+            editDeleteBtn.style.outline = '';
+        }
+
         editDeleteBtn.onclick = () => {
             if (selectedShotId == null) return;
-            shots = shots.filter(s => s.id !== selectedShotId);
-            saveShots();
-            haptic('miss');
-            deselectShot();
-            renderAll();
+            if (!deleteConfirmPending) {
+                // First tap — enter confirm state
+                deleteConfirmPending = true;
+                editDeleteBtn.textContent = 'Confirm ✕';
+                editDeleteBtn.style.background = '#b91c1c';
+                editDeleteBtn.style.outline = '2px solid #fca5a5';
+                deleteConfirmTimer = setTimeout(resetDeleteBtn, 3000);
+            } else {
+                // Second tap — execute delete
+                clearTimeout(deleteConfirmTimer);
+                shots = shots.filter(s => s.id !== selectedShotId);
+                saveShots();
+                haptic('miss');
+                resetDeleteBtn();
+                deselectShot();
+                renderAll();
+            }
         };
-        editCancelBtn.onclick = deselectShot;
+        editCancelBtn.onclick = () => {
+            resetDeleteBtn();
+            deselectShot();
+        };
 
         document.querySelectorAll('.move-q-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -4180,6 +4223,75 @@ ${quarterSections}
                 renderShots();
             });
         });
+
+        // ══════════════════════════════════
+        // REASSIGN PLAYER MODAL
+        // ══════════════════════════════════
+        const reassignModal = document.getElementById('reassignModal');
+        const reassignColumns = document.getElementById('reassignColumns');
+
+        function buildReassignColumns() {
+            reassignColumns.innerHTML = '';
+            teams.forEach((team, ti) => {
+                const col = document.createElement('div');
+                const header = document.createElement('div');
+                header.style.cssText = `text-align:center;font:900 13px Inter,sans-serif;color:${team.color};padding:var(--sp-2) 0;border-bottom:2px solid ${team.color};margin-bottom:var(--sp-2);text-transform:uppercase;letter-spacing:.06em;`;
+                header.textContent = team.name;
+                col.appendChild(header);
+
+                if (!team.players.length) {
+                    const empty = document.createElement('div');
+                    empty.style.cssText = 'font-size:11px;color:var(--text-faint);font-style:italic;text-align:center;padding:var(--sp-3) 0;';
+                    empty.textContent = 'No players';
+                    col.appendChild(empty);
+                } else {
+                    const grid = document.createElement('div');
+                    grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px;';
+                    team.players.forEach(p => {
+                        const player = normPlayer(p);
+                        const pid = player.num;
+                        const isCurrentPlayer = selectedShotId != null && (() => {
+                            const s = shots.find(sh => sh.id === selectedShotId);
+                            return s && s.teamIdx === ti && s.playerId === pid;
+                        })();
+                        const btn = document.createElement('button');
+                        btn.style.cssText = `padding:12px 4px;border-radius:8px;border:2px solid ${team.color};background:${isCurrentPlayer ? `rgba(${hexToRgb(team.color)},.3)` : `rgba(${hexToRgb(team.color)},.08)`};color:${team.color};font:900 16px Inter,sans-serif;cursor:pointer;text-align:center;line-height:1.2;${isCurrentPlayer ? 'box-shadow:0 0 0 2px ' + team.color + ';' : ''}`;
+                        btn.innerHTML = `#${pid}${player.name ? `<div style="font-size:10px;font-weight:600;opacity:.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${player.name}</div>` : ''}`;
+                        btn.onclick = () => reassignShot(pid, ti);
+                        grid.appendChild(btn);
+                    });
+                    col.appendChild(grid);
+                }
+                reassignColumns.appendChild(col);
+            });
+        }
+
+        function openReassignModal() {
+            const shot = shots.find(s => s.id === selectedShotId);
+            if (!shot) return;
+            buildReassignColumns();
+            reassignModal.classList.add('open');
+        }
+
+        function reassignShot(pid, teamIdx) {
+            const shot = shots.find(s => s.id === selectedShotId);
+            if (!shot) return;
+            shot.playerId = pid;
+            shot.teamIdx = teamIdx;
+            // FT position depends on which team shot it (Home = left, Away = right)
+            if (shot.ft) shot.x = teamIdx === 0 ? 21 : 79;
+            saveShots();
+            const newTeam = teams[teamIdx];
+            showToast(`Reassigned to ${newTeam.name} #${pid}`);
+            haptic('tap');
+            reassignModal.classList.remove('open');
+            selectShotForEdit(shot);
+            renderAll();
+        }
+
+        document.getElementById('editReassignBtn').onclick = openReassignModal;
+        document.getElementById('reassignBg').addEventListener('click', () => reassignModal.classList.remove('open'));
+        document.getElementById('reassignClose').addEventListener('click', () => reassignModal.classList.remove('open'));
 
         function findNearestShot(tapPctX, tapPctY) {
             // Both tap and shot percentages are in SVG viewBox space (x%*940, y%*500).

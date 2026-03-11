@@ -4123,13 +4123,15 @@ ${quarterSections}
             heatWasOn = heatOn;
             if (heatOn) { heatOn = false; }
             courtWrapper.classList.add('edit-mode');
-            // Add exit button below the court
-            const exitBtn = document.createElement('button');
-            exitBtn.id = 'editExitBtn';
-            exitBtn.style.cssText = 'display:block;margin:var(--sp-2) auto 0;background:rgba(248,113,113,.12);border:1.5px solid var(--color-miss);color:var(--color-miss);border-radius:6px;padding:6px 24px;font:700 12px Inter,sans-serif;cursor:pointer;letter-spacing:.04em;';
-            exitBtn.textContent = 'Exit Edit Mode';
-            exitBtn.onclick = exitEditMode;
-            courtContainer.appendChild(exitBtn);
+            // Add exit button below the court (guard against duplicates)
+            if (!document.getElementById('editExitBtn')) {
+                const exitBtn = document.createElement('button');
+                exitBtn.id = 'editExitBtn';
+                exitBtn.style.cssText = 'display:block;margin:var(--sp-2) auto 0;background:rgba(248,113,113,.12);border:1.5px solid var(--color-miss);color:var(--color-miss);border-radius:6px;padding:6px 24px;font:700 12px Inter,sans-serif;cursor:pointer;letter-spacing:.04em;';
+                exitBtn.textContent = 'Exit Edit Mode';
+                exitBtn.onclick = exitEditMode;
+                courtContainer.appendChild(exitBtn);
+            }
             editConfirmBar.style.display = 'none';
             document.getElementById('menuDropdown').style.display = 'none';
             renderShots();

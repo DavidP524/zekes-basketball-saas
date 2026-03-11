@@ -306,6 +306,142 @@
             }
         }
 
+        /* Hide roster panel by default (desktop + landscape) */
+        #rosterPanel {
+            display: none;
+        }
+
+        /* ── PORTRAIT MOBILE: raised court + inline roster panel ── */
+        @media (max-width: 640px) and (max-aspect-ratio: 1/1) {
+            .court-container {
+                justify-content: flex-start;
+                padding-top: var(--sp-2);
+            }
+
+            #rosterPanel {
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+                width: 100%;
+                max-width: 860px;
+                overflow: hidden;
+                border-top: 1px solid var(--border-subtle);
+                margin-top: var(--sp-2);
+                min-height: 0;
+            }
+
+            #rpRoster {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: var(--sp-2);
+                padding: var(--sp-2);
+                overflow-y: auto;
+                flex: 1;
+            }
+
+            #rpOutcome {
+                display: flex;
+                flex-direction: column;
+                flex: 1;
+                padding: var(--sp-2);
+                gap: var(--sp-2);
+            }
+
+            #rpOutcomeHeader {
+                display: flex;
+                align-items: center;
+                gap: var(--sp-2);
+                flex-shrink: 0;
+            }
+
+            #rpBack {
+                background: none;
+                border: none;
+                color: var(--text-secondary);
+                font-size: 20px;
+                cursor: pointer;
+                padding: 0 var(--sp-1);
+                line-height: 1;
+            }
+
+            #rpPlayerLabel {
+                font-size: 14px;
+                font-weight: 900;
+                letter-spacing: .04em;
+            }
+
+            #rpButtons {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: var(--sp-2);
+                flex: 1;
+            }
+
+            #rpButtons button {
+                border-radius: var(--radius-lg);
+                font: 900 18px 'Inter', sans-serif;
+                letter-spacing: .04em;
+                cursor: pointer;
+                border-width: 2px;
+                border-style: solid;
+                min-height: 52px;
+                touch-action: manipulation;
+                font-family: inherit;
+                transition: transform .1s, opacity .1s;
+            }
+
+            #rpButtons button:active {
+                transform: scale(.96);
+                opacity: .85;
+            }
+
+            #rpMake {
+                color: var(--color-make);
+                border-color: var(--color-make);
+                background: var(--color-make-bg);
+            }
+
+            #rpMiss {
+                color: var(--color-miss);
+                border-color: var(--color-miss);
+                background: var(--color-miss-bg);
+            }
+
+            #rpFTMake {
+                color: var(--color-ft-make);
+                border-color: var(--color-ft-make);
+                background: rgba(96, 165, 250, .07);
+            }
+
+            #rpFTMiss {
+                color: var(--color-ft-miss);
+                border-color: var(--color-ft-miss);
+                background: rgba(167, 139, 250, .07);
+            }
+
+            /* Awaiting court tap state */
+            #rosterPanel.awaiting-tap {
+                opacity: .45;
+                pointer-events: none;
+            }
+
+            #rpTapHint {
+                display: none;
+                text-align: center;
+                font-size: 12px;
+                font-weight: 700;
+                color: var(--accent);
+                letter-spacing: .06em;
+                text-transform: uppercase;
+                padding: var(--sp-2) 0;
+                flex-shrink: 0;
+            }
+
+            #rosterPanel.awaiting-tap #rpTapHint {
+                display: block;
+            }
+        }
+
         /* ── CLOCK ABOVE COURT ── */
         #clockRow {
             display: flex;
@@ -1405,6 +1541,27 @@
                     <g id="shotMarkersGroup"></g>
                 </svg>
             </div>
+
+            <!-- ══ PORTRAIT MOBILE ROSTER PANEL ══ -->
+            <div id="rosterPanel">
+                <!-- State A: Roster (default) -->
+                <div id="rpRoster"></div>
+
+                <!-- State B: Outcome selection -->
+                <div id="rpOutcome" style="display:none;">
+                    <div id="rpOutcomeHeader">
+                        <button id="rpBack">&#8592;</button>
+                        <span id="rpPlayerLabel"></span>
+                    </div>
+                    <div id="rpTapHint">Tap the court to place the shot</div>
+                    <div id="rpButtons">
+                        <button id="rpMake">MAKE ✓</button>
+                        <button id="rpMiss">MISS ✗</button>
+                        <button id="rpFTMake">FT MAKE ✓</button>
+                        <button id="rpFTMiss">FT MISS ✗</button>
+                    </div>
+                </div>
+            </div>
         </div>
 
         <!-- ══ RIGHT STATS PANEL ══ -->
@@ -2026,6 +2183,12 @@
         window.addEventListener('resize', () => {
             const toggleBtn = document.getElementById('btnStatsToggle');
             if (toggleBtn) toggleBtn.style.display = window.innerWidth <= 640 ? 'block' : 'none';
+            // Rebuild roster panel on orientation change; reset state if leaving portrait
+            if (isPortraitMobile()) {
+                buildRosterPanel();
+            } else {
+                resetRpToRoster();
+            }
         });
 
         function syncCanvas() {
@@ -2209,6 +2372,7 @@
             renderStats();
             renderScore();
             updateFGOverlay();
+            if (isPortraitMobile()) buildRosterPanel();
         }
 
         // ══════════════════════════════════
@@ -2714,6 +2878,22 @@
 
             currentTap = { x, y };
             haptic('tap');
+
+            // Portrait mobile: if a player is selected and we're awaiting a court tap, record directly
+            if (isPortraitMobile() && selectedShotPlayer && rpPendingMake !== null) {
+                recordShot(rpPendingMake);
+                rpPendingMake = null;
+                resetRpToRoster();
+                return;
+            }
+
+            // Portrait mobile: if no player selected yet, ignore court tap (roster panel handles selection)
+            if (isPortraitMobile()) {
+                showToast('Select a player first');
+                currentTap = null;
+                return;
+            }
+
             openShot();
         }
 
@@ -2802,6 +2982,104 @@
             });
         }
 
+        // ══════════════════════════════════
+        // PORTRAIT MOBILE ROSTER PANEL
+        // ══════════════════════════════════
+        const rosterPanel = document.getElementById('rosterPanel');
+        const rpRoster = document.getElementById('rpRoster');
+        const rpOutcome = document.getElementById('rpOutcome');
+        const rpPlayerLabel = document.getElementById('rpPlayerLabel');
+
+        function isPortraitMobile() {
+            return window.innerWidth <= 640 && window.innerHeight > window.innerWidth;
+        }
+
+        function buildRosterPanel() {
+            rpRoster.innerHTML = '';
+            teams.forEach((team, ti) => {
+                const col = document.createElement('div');
+                // Team header
+                const header = document.createElement('div');
+                header.style.cssText = `text-align:center;font:900 12px Inter,sans-serif;color:${team.color};padding:var(--sp-1) 0;border-bottom:2px solid ${team.color};margin-bottom:var(--sp-2);text-transform:uppercase;letter-spacing:.06em;`;
+                header.textContent = team.name;
+                col.appendChild(header);
+
+                if (!team.players.length) {
+                    const empty = document.createElement('div');
+                    empty.style.cssText = 'font-size:11px;color:var(--text-faint);font-style:italic;text-align:center;padding:var(--sp-2) 0;';
+                    empty.textContent = 'No players';
+                    col.appendChild(empty);
+                } else {
+                    const grid = document.createElement('div');
+                    grid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:5px;';
+                    team.players.forEach(p => {
+                        const player = normPlayer(p);
+                        const pid = player.num;
+                        const btn = document.createElement('button');
+                        btn.style.cssText = `padding:8px 4px;border-radius:8px;border:2px solid ${team.color};background:rgba(${hexToRgb(team.color)},.08);color:${team.color};font:900 15px Inter,sans-serif;cursor:pointer;text-align:center;line-height:1.2;touch-action:manipulation;`;
+                        btn.innerHTML = `#${pid}${player.name ? `<div style="font-size:9px;font-weight:600;opacity:.7;margin-top:2px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">${player.name}</div>` : ''}`;
+                        btn.onclick = () => showRpOutcome(pid, ti);
+                        grid.appendChild(btn);
+                    });
+                    col.appendChild(grid);
+                }
+                rpRoster.appendChild(col);
+            });
+        }
+
+        function showRpOutcome(pid, ti) {
+            selTeamIdx = ti;
+            lastTeamIdx = ti;
+            localStorage.setItem('nd_lastTeam', ti);
+            selectedShotPlayer = pid;
+            lastPlayer = pid;
+            localStorage.setItem('nd_lastPlayer', pid);
+            const team = teams[ti] || teams[0];
+            const player = team.players.map(normPlayer).find(p => p.num === pid);
+            const label = player && player.name ? `#${pid} ${player.name}` : `#${pid}`;
+            rpPlayerLabel.textContent = label;
+            rpPlayerLabel.style.color = team.color;
+            rpRoster.style.display = 'none';
+            rpOutcome.style.display = '';
+            rosterPanel.classList.remove('awaiting-tap');
+        }
+
+        function resetRpToRoster() {
+            selectedShotPlayer = null;
+            currentTap = null;
+            rpRoster.style.display = '';
+            rpOutcome.style.display = 'none';
+            rosterPanel.classList.remove('awaiting-tap');
+        }
+
+        // Pending make/miss result — set when user taps Make or Miss before court tap
+        let rpPendingMake = null;
+
+        document.getElementById('rpBack').addEventListener('click', resetRpToRoster);
+
+        document.getElementById('rpMake').addEventListener('click', () => {
+            if (!selectedShotPlayer) return;
+            rpPendingMake = true;
+            rosterPanel.classList.add('awaiting-tap');
+        });
+
+        document.getElementById('rpMiss').addEventListener('click', () => {
+            if (!selectedShotPlayer) return;
+            rpPendingMake = false;
+            rosterPanel.classList.add('awaiting-tap');
+        });
+
+        document.getElementById('rpFTMake').addEventListener('click', () => {
+            if (!selectedShotPlayer) return;
+            recordFreeThrow(true);
+            resetRpToRoster();
+        });
+
+        document.getElementById('rpFTMiss').addEventListener('click', () => {
+            if (!selectedShotPlayer) return;
+            recordFreeThrow(false);
+            resetRpToRoster();
+        });
 
         function recordShot(make) {
             if (!currentTap || !selectedShotPlayer) return;
